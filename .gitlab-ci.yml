@@ -1,0 +1,9 @@
+# Pipeline lives in the shared template. Docs: .../software-team/skuba-ci
+include:
+  - project: robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba-ci
+    ref: humble                 # pin a tag (vX.Y.Z) once skuba-ci is released
+    file: /templates/ros-ament-python.yml
+    inputs:
+      package_name: skuba_navigation
+      # repos_file: skuba_navigation.repos
+      # run_blackbox is auto-skipped until tests/policy.yaml exists

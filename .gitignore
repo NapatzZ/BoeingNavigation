@@ -1,0 +1,17 @@
+.env
+.claude
+__pycache__/
+*.pyc
+skuba_navigation.egg-info
+*/.DS_Store
+.DS_Store
+
+# CI / colcon / test artifacts
+_ws/
+artifacts/
+build/
+install/
+log/
+.pytest_cache/
+metrics.txt
+report.xml
