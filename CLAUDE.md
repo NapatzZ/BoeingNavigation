@@ -50,3 +50,40 @@ service node — turning it off ships unverified behaviour.
   When this repo adopts a policy, `run_blackbox: true` must be set and must stay.
 
 See `skuba-ci/docs/writing-tests.md` for how the harness works.
+
+## Module separation — keep node files thin, logic in plain modules
+
+Every ROS 2 node file (`*_node.py`, the `rclpy.node.Node` subclass) must stay
+glue-only: parameter declarations, subscriptions/services/timers, and
+callback wiring. Actual logic — anything you'd want to unit-test without
+spinning up `rclpy` or a running node graph — belongs in a plain module with
+no `rclpy` import, imported by the node.
+
+**Current state:** `skuba_navigation/` is still an empty stub
+(`__init__.py` only). Apply this split from the first real node you add —
+create the logic as a plain module under `skuba_navigation/` before writing
+the node class, don't retrofit the split later. See `skuba-vision` (e.g.
+`detect_node.py` vs. `face_pipeline.py`/`image_buffer.py`) or `skuba-speech`
+(`speak_node.py` vs. `_audio_sink.py`) for the pattern already in use
+elsewhere in this workspace.
+
+**Rule for new work:** when adding a capability, write it first as a
+function/class in a plain module (no `rclpy` import) and have the node import
+and call it. Only add code directly to a node file if it is genuinely ROS
+glue — a new subscription, service, parameter, or callback registration that
+itself does no real work beyond delegating to the plain module.
+
+## Naming convention — every srv/topic/action must be prefixed `/skuba/navigation/...`
+
+Every service, topic, or action this package advertises must live under the
+`/skuba/navigation/` namespace. Full form:
+`/skuba/navigation/<node_name>/<name>`.
+
+Follow the pattern already applied in `skuba-vision` and `skuba-speech`
+(see their `CLAUDE.md`): either set the node's `namespace="skuba/navigation"`
+in `super().__init__(...)` and use `~/`-relative names (the `speak_node`
+style), or hardcode the full absolute path per endpoint (the `detect_node`
+style) — pick one and apply it consistently across this package's nodes.
+This repo has no nodes yet; apply the prefix from the first service/topic/
+action you add, and keep any `tests/policy.yaml` and `README.md` in sync
+with whatever names you pick.
