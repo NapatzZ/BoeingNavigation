@@ -75,15 +75,16 @@ itself does no real work beyond delegating to the plain module.
 
 ## Naming convention — every srv/topic/action must be prefixed `/skuba/navigation/...`
 
-Every service, topic, or action this package advertises must live under the
-`/skuba/navigation/` namespace. Full form:
-`/skuba/navigation/<node_name>/<name>`.
+Every service, topic, or action this package advertises must live directly
+under `/skuba/navigation/`. Full form: `/skuba/navigation/<name>` — **no
+node-name segment.**
 
-Follow the pattern already applied in `skuba-vision` and `skuba-speech`
-(see their `CLAUDE.md`): either set the node's `namespace="skuba/navigation"`
-in `super().__init__(...)` and use `~/`-relative names (the `speak_node`
-style), or hardcode the full absolute path per endpoint (the `detect_node`
-style) — pick one and apply it consistently across this package's nodes.
-This repo has no nodes yet; apply the prefix from the first service/topic/
-action you add, and keep any `tests/policy.yaml` and `README.md` in sync
-with whatever names you pick.
+Follow the pattern applied in `skuba-vision` / `skuba-speech` (see their
+`CLAUDE.md`): the node takes no namespace (`super().__init__("some_node")`)
+and passes the absolute `/skuba/navigation/<name>` straight to
+`create_service` / `create_publisher`. Do not use `~/`-relative names or set
+a node namespace. This repo has no nodes yet; apply this from the first
+endpoint you add, keep `tests/policy.yaml` / `README.md` in sync, and if you
+ever run more than one node here, endpoint names must stay unique across the
+whole `/skuba/navigation/` space (qualify per-node lifecycle verbs by role,
+not a bare `load_model`).
