@@ -1,0 +1,27 @@
+positions:
+  destination:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.9999999786325128
+        x: 0.0
+        y: 0.0
+        z: -0.000206724391270674
+      position:
+        x: 3.1077093318695557
+        y: 0.17290450344317243
+        z: 0.0
+  table:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.9991936581265273
+        x: 0.0
+        y: 0.0
+        z: 0.04015013772988196
+      position:
+        x: 5.2073459979531505
+        y: -0.6424072206049738
+        z: 0.0

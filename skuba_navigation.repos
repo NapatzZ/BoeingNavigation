@@ -1,0 +1,7 @@
+# In-house dependencies pulled into the CI overlay workspace by `vcs import`.
+# Keep `version` on the same release branch as skuba_navigation (humble).
+repositories:
+  skuba_interfaces:
+    type: git
+    url: https://gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba-interface.git
+    version: humble

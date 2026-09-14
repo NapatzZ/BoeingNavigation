@@ -1,0 +1,45 @@
+# twist_mux — arbitrates several cmd_vel sources into a single /cmd_vel.
+#
+# Each source publishes to its OWN topic; twist_mux forwards the highest-priority
+# active one to /cmd_vel (the topic the kobuki base subscribes to). A source is
+# "active" while it keeps publishing within its `timeout`; when it goes silent it
+# drops out and the next-highest source takes over.
+#
+#   source     input topic      priority   notes
+#   ────────   ──────────────   ────────   ───────────────────────────────────
+#   joystick   cmd_vel_joy         100     teleop_twist_joy (xbox) — human override
+#   keyboard   cmd_vel_key          90     teleop_twist_keyboard
+#   follower   cmd_vel_follow       50     follower.py (person follow)
+#   nav2       cmd_vel_nav          10     collision_monitor cmd_vel_out_topic
+#
+# The e_stop LOCK (std_msgs/Bool) sits above everything: while it publishes
+# `true`, twist_mux blocks every input (priority < 255) and the base receives no
+# command → the robot stops. timeout: 0.0 disables lock expiry so the lock state
+# is driven purely by the Bool value (emergency_stop.py latches it permanently).
+twist_mux:
+  ros__parameters:
+    use_sim_time: false
+
+    topics:
+      joystick:
+        topic: cmd_vel_joy
+        timeout: 0.5
+        priority: 100
+      keyboard:
+        topic: cmd_vel_key
+        timeout: 0.5
+        priority: 90
+      follower:
+        topic: cmd_vel_follow
+        timeout: 0.5
+        priority: 50
+      navigation:
+        topic: cmd_vel_nav
+        timeout: 0.5
+        priority: 10
+
+    locks:
+      e_stop:
+        topic: e_stop
+        timeout: 0.0
+        priority: 255

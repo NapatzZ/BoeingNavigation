@@ -5,5 +5,5 @@ include:
     file: /templates/ros-ament-python.yml
     inputs:
       package_name: skuba_navigation
-      # repos_file: skuba_navigation.repos
+      repos_file: skuba_navigation.repos
       # run_blackbox is auto-skipped until tests/policy.yaml exists

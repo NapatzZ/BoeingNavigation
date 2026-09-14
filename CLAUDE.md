@@ -59,10 +59,11 @@ callback wiring. Actual logic — anything you'd want to unit-test without
 spinning up `rclpy` or a running node graph — belongs in a plain module with
 no `rclpy` import, imported by the node.
 
-**Current state:** `skuba_navigation/` is still an empty stub
-(`__init__.py` only). Apply this split from the first real node you add —
-create the logic as a plain module under `skuba_navigation/` before writing
-the node class, don't retrofit the split later. See `skuba-vision` (e.g.
+**Current state:** `skuba_navigation/` holds the nodes ported verbatim from
+`skuba_cheesecake_navigation` — they are monolithic (`nav_to_pose.py` is
+~1.5k lines of node + logic) and do **not** yet follow this split. That is a
+known debt from the port, not a precedent. Apply the split to every new node,
+and peel logic out of the ported ones as you touch them. See `skuba-vision` (e.g.
 `detect_node.py` vs. `face_pipeline.py`/`image_buffer.py`) or `skuba-speech`
 (`speak_node.py` vs. `_audio_sink.py`) for the pattern already in use
 elsewhere in this workspace.
@@ -83,8 +84,10 @@ Follow the pattern applied in `skuba-vision` / `skuba-speech` (see their
 `CLAUDE.md`): the node takes no namespace (`super().__init__("some_node")`)
 and passes the absolute `/skuba/navigation/<name>` straight to
 `create_service` / `create_publisher`. Do not use `~/`-relative names or set
-a node namespace. This repo has no nodes yet; apply this from the first
-endpoint you add, keep `tests/policy.yaml` / `README.md` in sync, and if you
+a node namespace. **Known debt:** the nodes ported from
+`skuba_cheesecake_navigation` still advertise under `/skuba/cheesecake/nav/`
+and are scheduled for a coordinated rename with their callers; every *new*
+endpoint must use `/skuba/navigation/<name>`. Keep `tests/policy.yaml` / `README.md` in sync, and if you
 ever run more than one node here, endpoint names must stay unique across the
 whole `/skuba/navigation/` space (qualify per-node lifecycle verbs by role,
 not a bare `load_model`).

@@ -1,93 +1,197 @@
 # skuba-navigation
 
+Nav2-based navigation for the SKUBA robot (ROS 2 Humble).
 
+The robot model lives in `skuba_description`; hardware bringup
+(kobuki, LiDAR, teleop, robot_state_publisher) lives in
+`skuba_bringup`. Both nav launch files include the bringup launch,
+so you do not start them separately.
 
-## Getting started
+## Launch files
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+There are two task launch files. Pick one — never run both.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### 1. `cheesecake_nav.launch.py` — AMCL localization
 
-## Add your files
+The normal stack: hardware, nav2 with AMCL, RViz, and the service nodes.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+```bash
+ros2 launch skuba_navigation cheesecake_nav.launch.py
+ros2 launch skuba_navigation cheesecake_nav.launch.py map:=/path/to/map.yaml
+```
+
+| Argument | Default |
+| --- | --- |
+| `map` | `maps/30_skuba_home/skuba_home.yaml` |
+| `params_file` | `params/rcj_param.yaml` |
+
+### 2. `cheesecake_resturant.launch.py` — AMCL localization, restaurant map
+
+For the restaurant task. Same AMCL-based localization as `cheesecake_nav.launch.py`
+(via `nav2_bringup_launch.py`'s stock `localization_launch.py`), just defaulted
+to the restaurant map and restaurant params file, plus `following_server`.
+
+```bash
+ros2 launch skuba_navigation cheesecake_resturant.launch.py
+```
+
+| Argument | Default |
+| --- | --- |
+| `map` | `maps/20_restaurant/resturant_map_long.yaml` |
+| `params_file` | `params/nav2_params.yaml` |
+
+### Building a new map (SLAM Toolbox)
+
+`nav2_slam_bringup_launch.py` is the mapping entry point. Nothing includes it —
+you run it by hand, drive the robot around, then save.
+
+```bash
+ros2 launch skuba_navigation nav2_slam_bringup_launch.py
+ros2 run skuba_navigation map_save_cli        # interactive save helper
+```
+
+It runs `slam_toolbox`'s own `online_async_launch.py` (with
+`params/slam_params.yaml` as `slam_params_file` — `mode: mapping`,
+loop closure on, consuming `/scan_slam`), nav2's `navigation_launch.py` (with
+`params/nav2_params.yaml` as `params_file`), RViz, and
+`person_cluster_filter` — which strips person-sized LiDAR clusters from `/scan`
+and republishes the result as `/scan_slam`, so people walking past are not
+baked into the occupancy grid. It also brings up `filter_lidar`,
+`emergency_stop`, and `twist_mux` directly (unlike the two task launches,
+which get these via `nav2_bringup_launch.py`), so teleop driving during a
+mapping session reaches the robot through the same `cmd_vel` arbitration and
+software e-stop as the task launches use.
+
+Save the result under `maps/<NN_name>/`; `setup.py` installs the whole `maps/`
+tree, so a new folder is picked up on the next `colcon build` with no edits.
+
+### Internal launch files
+
+Not meant to be run directly, but they are valid standalone launches:
+
+- `nav2_bringup_launch.py` — nav2 core (localization + navigation), plus
+  `emergency_stop`, `filter_lidar`, `twist_mux`, and the `base_link -> laser`
+  static transform. Included by both task launches. `use_localization:=False`
+  skips AMCL (used by `nav2_slam_bringup_launch.py`'s mapping stack, which
+  runs SLAM Toolbox instead of AMCL for `map -> odom`, and brings up
+  `filter_lidar`/`emergency_stop`/`twist_mux` itself instead of going through
+  this file).
+
+## Nodes
+
+Executables registered in `setup.py`:
+
+| Executable | Purpose |
+| --- | --- |
+| `nav_to_pose` | Hosts most navigation services (see below) |
+| `save_location` | Writes the current pose into `share/saved_pose.yaml` |
+| `door_detector` | Reports whether the door ahead is open |
+| `costmap_reconfig_server` | Applies costmap presets from `params/costmap_dynamic_config.yaml` at runtime |
+| `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
+| `emergency_stop` | Publishes the twist_mux e-stop lock |
+| `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
+| `person_cluster_filter` | Strips person-sized LiDAR clusters before SLAM (mapping only) |
+| `map_saver`, `map_save_cli` | Serialize the SLAM Toolbox map to disk |
+
+`cmd_vel` arbitration is handled by `twist_mux` (`params/twist_mux.yaml`): joy,
+keyboard, follow and nav sources are muxed into the single `/cmd_vel` the base
+drives, with `emergency_stop` holding the lock topic.
+
+## Services
+
+All under the `/skuba/cheesecake/nav/` namespace unless noted.
+
+From `nav_to_pose`:
+
+| Service | Type |
+| --- | --- |
+| `nav_to_name` | `NavToName` |
+| `nav_to_position` | `NavToPose` |
+| `nav_to_tf` | `NavToTF` |
+| `nav2_to_tf` | `Nav2ToTF` |
+| `rotate` | `Rotate` |
+| `move_wheel` | `MoveWheel` |
+| `goal_cancel` | `GoalCancel` |
+| `clear_costmap` | `ClearCostmap` |
+| `save_location` | `SaveLocationCommand` |
+| `reload_yaml` | `Trigger` |
+
+From the other nodes:
+
+| Service | Node |
+| --- | --- |
+| `save_location_with_side` (`SaveLocationWithSide`) | `save_location` |
+| `door_detector` | `door_detector` |
+| `costmap_reconfig`, `reset_costmap_config`, `controller_reconfig` | `costmap_reconfig_server` |
+| `enable_backward_mode`, `disable_backward_mode` | `costmap_reconfig_server` |
+| `following_server` | `following_server` |
+| `filter` | `filter_lidar` |
+
+The person-following service `/skuba/cheesecake/nav/following` is **not** in
+this package — it is served by `skuba_vision`'s `follower` node.
+
+## Docker
+
+Compose lives in `docker/`, not the package root:
+
+```bash
+cd docker
+docker compose up -d
+docker exec -it skuba-nav bash
+```
+
+Runs `napatku/skuba-navigation:latest` (built from `docker/dockerfile`, based on
+`osrf/ros:humble-desktop-full`) with `--network host`, `ROS_DOMAIN_ID=10`,
+`privileged`, and USB passthrough for the LiDAR and kobuki base.
+
+Host source folders are bind-mounted with paths relative to the compose file, so
+the workspace can live anywhere. `build/` and `install/` are named volumes
+(`nav_build`, `nav_install`) that persist across restarts — use
+`docker compose down -v` to force a clean rebuild.
+
+The container does **not** build on startup. `entrypoint.sh` only sources
+`/opt/ros/humble/setup.bash` and, if present, `install/setup.bash`, then idles.
+Build it yourself once you are inside:
+
+```bash
+cd /root/skuba_ws
+colcon build --packages-select skuba_navigation
+source install/setup.bash
+```
+
+## Build (native)
+
+```bash
+cd ~/skuba_ws
+colcon build --packages-select skuba_navigation
+source install/setup.bash
+```
+
+Note that `maps/` and `params/` are installed into `share/`, so a `colcon build`
+is required after adding a map or editing a params file — editing the source
+tree alone has no effect at runtime.
+
+## TF tree
+
+`odom -> base_footprint` comes from the base driver; everything below it comes
+from the `skuba_description` URDF. `map -> odom` comes from AMCL in
+both task launches, or from SLAM Toolbox while mapping
+(`nav2_slam_bringup_launch.py`).
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba-navigation.git
-git branch -M main
-git push -uf origin main
+map -> odom -> base_footprint -> base_link -> laser
+                                           -> arm_base_link -> link-0 ... link-4 -> gripper
 ```
 
-## Integrate with your tools
+## Troubleshooting
 
-* [Set up project integrations](https://gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba-navigation/-/settings/integrations)
+RPLidar permission errors:
 
-## Collaborate with your team
+```bash
+source ~/skuba_ws/src/rplidar_ros/scripts/create_udev_rules.sh
+```
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Maintainers
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- lukchin
+- NapatzZ
