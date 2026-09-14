@@ -263,7 +263,6 @@ controller_server:
       angular_dist_threshold: 0.50
       forward_sampling_distance: 0.60
       rotate_to_heading_angular_vel: 0.8
-      max_angular_accel: 1.5
       simulate_ahead_time: 1.0
       rotate_to_goal_heading: true
       rotate_to_heading_once: false

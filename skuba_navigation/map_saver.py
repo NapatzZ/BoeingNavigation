@@ -22,7 +22,7 @@ class MapSaver:
         try:
             subprocess.run(command, check=True, capture_output=True, timeout=30)
             return True
-        except:
+        except (subprocess.SubprocessError, OSError):
             return False
 
     def save_nav2_map(self):

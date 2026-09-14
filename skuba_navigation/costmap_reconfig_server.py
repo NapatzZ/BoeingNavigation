@@ -9,8 +9,6 @@ SetControllerMode service for switching the robot to backward-only motion.
 """
 
 import yaml
-import os
-import re
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup

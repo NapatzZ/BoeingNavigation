@@ -14,11 +14,10 @@ import math
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 from rclpy.callback_groups import ReentrantCallbackGroup
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist
+from geometry_msgs.msg import PoseStamped, Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from ament_index_python.packages import get_package_share_directory
 from skuba_interfaces.srv import NavToPose, NavToName, SaveLocationCommand, Rotate, MoveWheel, GoalCancel, ClearCostmap, NavToTF, Nav2ToTF
-from lifecycle_msgs.srv import GetState
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformListener, Buffer

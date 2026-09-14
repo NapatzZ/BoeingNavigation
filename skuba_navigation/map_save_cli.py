@@ -25,7 +25,7 @@ def main():
             print("\nExiting without saving.")
             break
 
-        map_name = input(f"Map name [skuba_map]: ").strip() or "skuba_map"
+        map_name = input("Map name [skuba_map]: ").strip() or "skuba_map"
         save_dir = input(f"Save directory [{DEFAULT_DIR}]: ").strip() or DEFAULT_DIR
 
         map_saver = MapSaver(map_name, save_dir)

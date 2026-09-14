@@ -27,8 +27,6 @@ import argparse
 import base64
 import json
 import math
-import os
-import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
