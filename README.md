@@ -99,7 +99,7 @@ drives, with `emergency_stop` holding the lock topic.
 
 ## Services
 
-All under the `/skuba/cheesecake/nav/` namespace unless noted.
+All under the `/skuba/navigation/` namespace unless noted.
 
 From `nav_to_pose`:
 
@@ -121,14 +121,15 @@ From the other nodes:
 | Service | Node |
 | --- | --- |
 | `save_location_with_side` (`SaveLocationWithSide`) | `save_location` |
-| `door_detector` | `door_detector` |
+| `door_detector/toggle` | `door_detector` |
 | `costmap_reconfig`, `reset_costmap_config`, `controller_reconfig` | `costmap_reconfig_server` |
 | `enable_backward_mode`, `disable_backward_mode` | `costmap_reconfig_server` |
 | `following_server` | `following_server` |
-| `filter` | `filter_lidar` |
+| `filter_lidar` | `filter_lidar` |
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in
-this package — it is served by `skuba_vision`'s `follower` node.
+this package — it is served by `skuba_vision`'s `follower` node (different
+namespace prefix, unaffected by this package's rename).
 
 ## Docker
 

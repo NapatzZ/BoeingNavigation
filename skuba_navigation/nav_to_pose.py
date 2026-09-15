@@ -6,7 +6,6 @@ allowing it to navigate to saved positions or specific coordinates, save current
 locations, and perform basic movement operations like rotation and linear movement.
 It integrates with Nav2 for path planning and navigation execution.
 """
-import yaml
 import os
 import time
 import rclpy
@@ -14,10 +13,10 @@ import math
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 from rclpy.callback_groups import ReentrantCallbackGroup
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from ament_index_python.packages import get_package_share_directory
-from skuba_interfaces.srv import NavToPose, NavToName, SaveLocationCommand, Rotate, MoveWheel, GoalCancel, ClearCostmap, NavToTF, Nav2ToTF
+from skuba_interfaces.srv import NavToPose, NavToName, SaveLocationCommand, Rotate, MoveWheel, NavToTF, Nav2ToTF
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformListener, Buffer
@@ -28,10 +27,10 @@ from skuba_navigation.geometry_utils import (
     approach_pose_for_side,
     normalize_angle,
     quaternion_to_yaw,
-    yaw_to_quaternion,
 )
+from skuba_navigation import nav_to_pose_logic as logic
 
-NAMESPACE = 'skuba/cheesecake/nav'
+NAMESPACE = 'skuba/navigation'
 package_name = 'skuba_navigation'
 install_share_path = Path(get_package_share_directory(package_name))
 ws_root = install_share_path.parents[3]
@@ -78,72 +77,72 @@ class NavigateToGoalServer(Node):
         """Initialize all ROS 2 services provided by this node."""
         # Service to cancel navigation
         self._cancel_service = self.create_service(
-            GoalCancel,
-            f'{NAMESPACE}/goal_cancel',
+            Trigger,
+            f'/{NAMESPACE}/goal_cancel',
             self.cancel_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to clear costmaps
         self._clear_costmap_service = self.create_service(
-            ClearCostmap,
-            f'{NAMESPACE}/clear_costmap',
+            Trigger,
+            f'/{NAMESPACE}/clear_costmap',
             self.clear_costmap_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to save the current position
         self._save_position_service = self.create_service(
             SaveLocationCommand,
-            f'{NAMESPACE}/save_location',
+            f'/{NAMESPACE}/save_location',
             self.save_position_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to navigate using a named position (YAML)
         self._named_goal_service = self.create_service(
             NavToName,
-            f'{NAMESPACE}/nav_to_name',
+            f'/{NAMESPACE}/nav_to_name',
             self.set_named_goal_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to navigate using a direct PoseStamped
         self._pose_goal_service = self.create_service(
             NavToPose,
-            f'{NAMESPACE}/nav_to_position',
+            f'/{NAMESPACE}/nav_to_position',
             self.set_pose_goal_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to reload the YAML file
         self._reload_yaml_service = self.create_service(
             Trigger,
-            f'{NAMESPACE}/reload_yaml',
+            f'/{NAMESPACE}/reload_yaml',
             self.reload_yaml_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to rotate robot
         self.rotate_service = self.create_service(
             Rotate,
-            f'{NAMESPACE}/rotate',
+            f'/{NAMESPACE}/rotate',
             self.rotate_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to move wheel
         self._move_forward_service = self.create_service(
             MoveWheel,
-            f'{NAMESPACE}/move_wheel',
+            f'/{NAMESPACE}/move_wheel',
             self.move_wheel_callback,
             callback_group=self.callback_group
         )
-        
+
         # Service to navigate to TF frame at 70% distance
         self._nav_to_tf_service = self.create_service(
             NavToTF,
-            f'{NAMESPACE}/nav_to_tf',
+            f'/{NAMESPACE}/nav_to_tf',
             self.nav_to_tf_callback,
             callback_group=self.callback_group
         )
@@ -151,7 +150,7 @@ class NavigateToGoalServer(Node):
         # Service to navigate to TF using Nav2 Simple Commander (stop at stop_distance)
         self._nav2_to_tf_service = self.create_service(
             Nav2ToTF,
-            f'{NAMESPACE}/nav2_to_tf',
+            f'/{NAMESPACE}/nav2_to_tf',
             self.nav2_to_tf_callback,
             callback_group=self.callback_group
         )
@@ -178,22 +177,9 @@ class NavigateToGoalServer(Node):
         """
         try:
             self.get_logger().info(f"Loading saved positions from: {yaml_path}")
-            with open(yaml_path, 'r') as file:
-                data = yaml.safe_load(file)
-                positions = {}
-                for name, pose_data in data.get("positions", {}).items():
-                    pose = PoseStamped()
-                    pose.header.frame_id = pose_data["header"]["frame_id"]
-                    pose.pose.position.x = pose_data["pose"]["position"]["x"]
-                    pose.pose.position.y = pose_data["pose"]["position"]["y"]
-                    pose.pose.position.z = pose_data["pose"]["position"]["z"]
-                    pose.pose.orientation.x = pose_data["pose"]["orientation"]["x"]
-                    pose.pose.orientation.y = pose_data["pose"]["orientation"]["y"]
-                    pose.pose.orientation.z = pose_data["pose"]["orientation"]["z"]
-                    pose.pose.orientation.w = pose_data["pose"]["orientation"]["w"]
-                    positions[name] = pose
-                self.get_logger().info(f"Loaded {len(positions)} named positions: {', '.join(positions.keys())}")
-                return positions
+            positions = logic.load_saved_positions(yaml_path)
+            self.get_logger().info(f"Loaded {len(positions)} named positions: {', '.join(positions.keys())}")
+            return positions
         except Exception as e:
             self.get_logger().error(f"Failed to load saved positions: {e}")
             return {}
@@ -376,10 +362,10 @@ class NavigateToGoalServer(Node):
             current_tf = self._lookup_pose('base_link', timeout_sec=1.0)
             
             # Calculate distance
-            dx = goal_pose.pose.position.x - current_tf.transform.translation.x
-            dy = goal_pose.pose.position.y - current_tf.transform.translation.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
+            distance = logic.distance_2d(
+                current_tf.transform.translation.x, current_tf.transform.translation.y,
+                goal_pose.pose.position.x, goal_pose.pose.position.y)
+
             self.get_logger().debug(f"Current position: x={current_tf.transform.translation.x:.2f}, y={current_tf.transform.translation.y:.2f}")
             self.get_logger().debug(f"Goal position: x={goal_pose.pose.position.x:.2f}, y={goal_pose.pose.position.y:.2f}")
             self.get_logger().debug(f"Distance to goal: {distance:.2f}m")
@@ -406,8 +392,8 @@ class NavigateToGoalServer(Node):
         """
         Service callback to cancel current navigation.
         Args:
-            req: GoalCancel request
-            res: GoalCancel response
+            req: std_srvs/Trigger request
+            res: std_srvs/Trigger response
         Returns:
             res: Updated response with success status
         """
@@ -415,17 +401,19 @@ class NavigateToGoalServer(Node):
             self.get_logger().info("Goal cancellation requested.")
             self.navigator.cancelTask()
             res.success = True
+            res.message = "Navigation goal canceled."
         except Exception as e:
             self.get_logger().error(f"Error in cancel_callback: {e}")
             res.success = False
+            res.message = f"Error canceling goal: {e}"
         return res
-    
+
     def clear_costmap_callback(self, req, res):
         """
         Service callback to clear all costmaps.
         Args:
-            req: ClearCostmap request
-            res: ClearCostmap response
+            req: std_srvs/Trigger request
+            res: std_srvs/Trigger response
         Returns:
             res: Updated response with success status
         """
@@ -435,6 +423,7 @@ class NavigateToGoalServer(Node):
                 self.navigator.clearAllCostmaps()
                 self.get_logger().info("Successfully cleared all costmaps")
                 res.success = True
+                res.message = "Costmaps cleared."
             except Exception as e:
                 self.get_logger().warning(f"Error clearing all costmaps: {e}")
                 # Try alternative method
@@ -442,22 +431,17 @@ class NavigateToGoalServer(Node):
                     self.clear_costmaps_humble()
                     self.get_logger().info("Successfully cleared costmaps using Humble method")
                     res.success = True
+                    res.message = "Costmaps cleared (Humble method)."
                 except Exception as e2:
                     self.get_logger().error(f"Failed to clear costmaps in any way: {e2}")
                     res.success = False
+                    res.message = f"Failed to clear costmaps: {e2}"
         except Exception as e:
             self.get_logger().error(f"Error in clear_costmap_callback: {e}")
             res.success = False
+            res.message = f"Error clearing costmaps: {e}"
         return res
     
-    def quaternion_to_yaw(self, quaternion):
-        """Convert quaternion to yaw angle (radians). See geometry_utils."""
-        return quaternion_to_yaw(quaternion)
-
-    def normalize_angle(self, angle):
-        """Normalize angle to range [-pi, pi]. See geometry_utils."""
-        return normalize_angle(angle)
-
     def _lookup_pose(self, frame, timeout_sec=1.0, ref_frame='map'):
         """Look up `frame` in `ref_frame` via TF.
 
@@ -485,43 +469,17 @@ class NavigateToGoalServer(Node):
             Optimized for 'Fast but Accurate' performance on heavy platforms.
             """
             try:
-                # --- TUNING PARAMETERS (Fast but Accurate) ---
-
-                # KP: 1.8
-                # Controls how fast it slows down.
-                # 1.8 is a "stiff" response: fast approach, strong braking.
-                KP = 3.0
-
-                # KD: Derivative gain.
-                # Reacts to how fast the error is changing (i.e. current angular velocity).
-                # Pushes back against the approach speed to damp overshoot, allowing
-                # KP/MAX_SPEED to be tuned more aggressively.
-                KD = 0.3
-
-                # MAX_SPEED: 0.5 rad/s (~28 deg/s)
-                # Safety cap. Prevents building too much momentum on long rotations.
-                MAX_SPEED = 0.5
-                
-                # MIN_SPEED: 0.18 rad/s
-                # Vital for accuracy. Ensures the robot has enough power to overcome 
-                # floor friction during the final micro-adjustments.
-                MIN_SPEED = 0.18  
-                
-                # TOLERANCE: loop exit threshold; caller can override via request.tolerance_degrees
+                # PD tuning constants + control law live in nav_to_pose_logic
+                # (compute_rotation_command). TOLERANCE is per-request.
                 tolerance_deg = request.tolerance_degrees if request.tolerance_degrees > 0.0 else 10.0
                 TOLERANCE = math.radians(tolerance_deg)
-                
-                # DECEL_ZONE: ~5 degrees
-                # When within this angle, we force the robot to MIN_SPEED to prevent overshoot.
-                DECEL_ZONE = math.radians(5.0)
-                
                 MAX_DURATION = 30.0
                 # ---------------------------------------------
 
                 # 1. Get initial orientation
                 try:
                     initial_tf = self._lookup_pose('base_link', timeout_sec=1.0)
-                    initial_yaw = self.quaternion_to_yaw(initial_tf.transform.rotation)
+                    initial_yaw = quaternion_to_yaw(initial_tf.transform.rotation)
                 except Exception as e:
                     self.get_logger().warning(f"No transform available for rotation: {e}")
                     response.success = False
@@ -529,7 +487,7 @@ class NavigateToGoalServer(Node):
                 
                 # 2. Calculate target yaw
                 target_angle_rad = math.radians(request.degrees)
-                target_yaw = self.normalize_angle(initial_yaw + target_angle_rad)
+                target_yaw = normalize_angle(initial_yaw + target_angle_rad)
                 
                 twist = Twist()
                 start_time = time.time()
@@ -543,14 +501,14 @@ class NavigateToGoalServer(Node):
                     # 3. Get current orientation (Fast timeout for control loop)
                     try:
                         current_tf = self._lookup_pose('base_link', timeout_sec=0.05)
-                        current_yaw = self.quaternion_to_yaw(current_tf.transform.rotation)
+                        current_yaw = quaternion_to_yaw(current_tf.transform.rotation)
                     except Exception:
                         # If TF fails momentarily, skip this cycle but don't crash
                         time.sleep(0.02)
                         continue
                     
                     # 4. Calculate Error
-                    angle_diff = self.normalize_angle(target_yaw - current_yaw)
+                    angle_diff = normalize_angle(target_yaw - current_yaw)
                     error_degrees = math.degrees(angle_diff)
                     
                     # Log progress every 1.0s
@@ -572,24 +530,8 @@ class NavigateToGoalServer(Node):
                     prev_error = angle_diff
                     prev_time = now
 
-                    # B. Calculate PD Output
-                    # KD term opposes the approach speed (error_rate is negative while
-                    # closing in), damping overshoot.
-                    control_speed = abs(angle_diff) * KP + error_rate * KD
-
-                    # C. Apply Constraints
-                    if abs(angle_diff) < DECEL_ZONE:
-                        # Force steady crawling speed when very close (prevents overshoot)
-                        speed = MIN_SPEED
-                    elif control_speed > MAX_SPEED:
-                        speed = MAX_SPEED
-                    elif control_speed < MIN_SPEED:
-                        speed = MIN_SPEED
-                    else:
-                        speed = control_speed
-
-                    # D. Apply Direction
-                    twist.angular.z = speed if angle_diff > 0 else -speed
+                    # B/C. PD output + speed constraints (see nav_to_pose_logic)
+                    twist.angular.z = logic.compute_rotation_command(angle_diff, error_rate)
                     self.cmd_vel_publisher.publish(twist)
 
                     # Run at 50Hz
@@ -606,8 +548,8 @@ class NavigateToGoalServer(Node):
                 # 9. Final Verification
                 try:
                     final_tf = self._lookup_pose('base_link', timeout_sec=1.0)
-                    final_yaw = self.quaternion_to_yaw(final_tf.transform.rotation)
-                    actual_rotation = self.normalize_angle(final_yaw - initial_yaw)
+                    final_yaw = quaternion_to_yaw(final_tf.transform.rotation)
+                    actual_rotation = normalize_angle(final_yaw - initial_yaw)
                     final_error = abs(math.degrees(actual_rotation) - request.degrees)
                     
                     self.get_logger().info(f"Rotation Complete. Requested: {request.degrees}°, Actual: {math.degrees(actual_rotation):.2f}°, Final Error: {final_error:.2f}°")
@@ -760,57 +702,24 @@ class NavigateToGoalServer(Node):
                 # Wait for transform from map to base_link
                 tf = self._lookup_pose('base_link', timeout_sec=1.0)
                 self.get_logger().info(f"Got TF transform: x={tf.transform.translation.x:.2f}, y={tf.transform.translation.y:.2f}")
-                
-                # Read YAML file
-                try:
-                    with open(yaml_path, 'r') as file:
-                        data = yaml.safe_load(file) or {"positions": {}}
-                except Exception as e:
-                    self.get_logger().error(f"Failed to load YAML file: {e}")
-                    data = {"positions": {}}
-                
-                # Check if the position name already exists and replace if needed
+
                 position_name = request.location_name.strip()
+                data = logic.merge_position(
+                    yaml_path,
+                    position_name,
+                    "map",
+                    (tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
+                    (tf.transform.rotation.x, tf.transform.rotation.y,
+                     tf.transform.rotation.z, tf.transform.rotation.w),
+                )
                 if position_name in data["positions"]:
                     self.get_logger().info(f"Position '{position_name}' already exists. Replacing with new position.")
-                
-                pose_stamped = PoseStamped()
-                pose_stamped.header.stamp = self.get_clock().now().to_msg()
-                pose_stamped.header.frame_id = "map"
-                pose_stamped.pose.position.x = tf.transform.translation.x
-                pose_stamped.pose.position.y = tf.transform.translation.y
-                pose_stamped.pose.position.z = tf.transform.translation.z
-                pose_stamped.pose.orientation.x = tf.transform.rotation.x
-                pose_stamped.pose.orientation.y = tf.transform.rotation.y
-                pose_stamped.pose.orientation.z = tf.transform.rotation.z
-                pose_stamped.pose.orientation.w = tf.transform.rotation.w
-                
-                # Add the new position to the data
-                data["positions"][position_name] = {
-                    "header": {
-                        "frame_id": pose_stamped.header.frame_id,
-                    },
-                    "pose": {
-                        "position": {
-                            "x": pose_stamped.pose.position.x,
-                            "y": pose_stamped.pose.position.y,
-                            "z": pose_stamped.pose.position.z,
-                        },
-                        "orientation": {
-                            "x": pose_stamped.pose.orientation.x,
-                            "y": pose_stamped.pose.orientation.y,
-                            "z": pose_stamped.pose.orientation.z,
-                            "w": pose_stamped.pose.orientation.w,
-                        },
-                    },
-                }
-                
+
                 # Save the updated data back to the YAML file
                 try:
                     # Check if we have write permissions
                     if os.access(yaml_path, os.W_OK):
-                        with open(yaml_path, 'w') as file:
-                            yaml.safe_dump(data, file)
+                        logic.write_positions_yaml(yaml_path, data)
                         self.get_logger().info(
                             f"Saved current position as '{position_name}' in YAML file."
                         )
@@ -877,7 +786,7 @@ class NavigateToGoalServer(Node):
                 initial_tf = self._lookup_pose('base_link', timeout_sec=1.0)
                 initial_x = initial_tf.transform.translation.x
                 initial_y = initial_tf.transform.translation.y
-                initial_yaw = self.quaternion_to_yaw(initial_tf.transform.rotation)
+                initial_yaw = quaternion_to_yaw(initial_tf.transform.rotation)
 
                 self.get_logger().info(f"Initial robot position: x={initial_x:.3f}, y={initial_y:.3f}, yaw={math.degrees(initial_yaw):.1f}°")
 
@@ -919,7 +828,7 @@ class NavigateToGoalServer(Node):
             self.get_logger().info(f"Target distance to travel: {target_distance:.3f}m, direction: {math.degrees(target_angle):.1f}°")
 
             # Calculate required rotation to face target
-            angle_diff = self.normalize_angle(target_angle - initial_yaw)
+            angle_diff = normalize_angle(target_angle - initial_yaw)
 
             # Step 1: Rotate to face target direction
             if abs(angle_diff) > math.radians(5):
@@ -935,12 +844,12 @@ class NavigateToGoalServer(Node):
                 while rclpy.ok() and (time.time() - start_time) < max_rotation_time:
                     try:
                         current_tf = self._lookup_pose('base_link', timeout_sec=0.1)
-                        current_yaw = self.quaternion_to_yaw(current_tf.transform.rotation)
+                        current_yaw = quaternion_to_yaw(current_tf.transform.rotation)
                     except Exception:
                         time.sleep(0.1)
                         continue
 
-                    remaining_angle = self.normalize_angle(target_angle - current_yaw)
+                    remaining_angle = normalize_angle(target_angle - current_yaw)
 
                     if abs(remaining_angle) < tolerance:
                         self.get_logger().info("Rotation to target direction completed")
@@ -1007,7 +916,7 @@ class NavigateToGoalServer(Node):
                 current_tf = self._lookup_pose('base_link', timeout_sec=1.0)
                 current_x = current_tf.transform.translation.x
                 current_y = current_tf.transform.translation.y
-                current_yaw = self.quaternion_to_yaw(current_tf.transform.rotation)
+                current_yaw = quaternion_to_yaw(current_tf.transform.rotation)
 
                 target_tf_updated = self._lookup_pose(target_tf_name, timeout_sec=1.0)
                 target_x_updated = target_tf_updated.transform.translation.x
@@ -1018,7 +927,7 @@ class NavigateToGoalServer(Node):
                     target_x_updated - current_x
                 )
 
-                final_angle_diff = self.normalize_angle(final_target_angle - current_yaw)
+                final_angle_diff = normalize_angle(final_target_angle - current_yaw)
 
                 self.get_logger().info(f"Final rotation needed: {math.degrees(final_angle_diff):.1f}° to face object")
 
@@ -1033,12 +942,12 @@ class NavigateToGoalServer(Node):
                     while rclpy.ok() and (time.time() - start_time) < max_rotation_time:
                         try:
                             current_tf_rot = self._lookup_pose('base_link', timeout_sec=0.1)
-                            current_yaw_rot = self.quaternion_to_yaw(current_tf_rot.transform.rotation)
+                            current_yaw_rot = quaternion_to_yaw(current_tf_rot.transform.rotation)
                         except Exception:
                             time.sleep(0.1)
                             continue
 
-                        remaining_angle = self.normalize_angle(final_target_angle - current_yaw_rot)
+                        remaining_angle = normalize_angle(final_target_angle - current_yaw_rot)
 
                         if abs(remaining_angle) < tolerance:
                             self.get_logger().info("Final rotation to face object completed")
@@ -1089,29 +998,12 @@ class NavigateToGoalServer(Node):
 
         return response
 
-    # Angular half-width of an approach side: sides are 45 deg apart, so 22.5
-    # deg either way is the widest a final pose can drift and still be
-    # unambiguously on the requested side.
-    SIDE_BEARING_TOLERANCE = math.radians(22.5)
-    # Radial slack on the standoff distance, matching the legacy AUTO check.
-    STANDOFF_TOLERANCE = 0.15
-    # Final heading error above which we spin in place to re-face the target.
-    FACING_TOLERANCE = math.radians(5.0)
+    # Tolerances (SIDE_BEARING_TOLERANCE / STANDOFF_TOLERANCE / FACING_TOLERANCE)
+    # live in nav_to_pose_logic, used here as `logic.<NAME>`.
 
     def _make_pose(self, x, y, yaw, frame_id='map'):
         """Build a PoseStamped in `frame_id` from a planar (x, y, yaw)."""
-        pose = PoseStamped()
-        pose.header.stamp = self.get_clock().now().to_msg()
-        pose.header.frame_id = frame_id
-        pose.pose.position.x = float(x)
-        pose.pose.position.y = float(y)
-        pose.pose.position.z = 0.0
-        qz, qw = yaw_to_quaternion(yaw)
-        pose.pose.orientation.x = 0.0
-        pose.pose.orientation.y = 0.0
-        pose.pose.orientation.z = qz
-        pose.pose.orientation.w = qw
-        return pose
+        return logic.make_pose(x, y, yaw, self.get_clock().now().to_msg(), frame_id)
 
     def _goal_is_plannable(self, start_pose, goal_pose):
         """Ask the global planner whether `goal_pose` is reachable.
@@ -1125,9 +1017,7 @@ class NavigateToGoalServer(Node):
         except Exception as e:
             self.get_logger().warning(f"Could not consult planner for reachability: {e}")
             return None
-        if path is None:
-            return False
-        return len(path.poses) > 0
+        return logic.path_is_plannable(path)
 
     def _face_target(self, target_x, target_y):
         """Spin in place until the robot points at (target_x, target_y).
@@ -1142,14 +1032,14 @@ class NavigateToGoalServer(Node):
             self.get_logger().warning(f"Could not read pose to face target: {e}")
             return False
 
-        current_yaw = self.quaternion_to_yaw(tf.transform.rotation)
+        current_yaw = quaternion_to_yaw(tf.transform.rotation)
         desired_yaw = math.atan2(
             target_y - tf.transform.translation.y,
             target_x - tf.transform.translation.x,
         )
-        error = self.normalize_angle(desired_yaw - current_yaw)
+        error = normalize_angle(desired_yaw - current_yaw)
 
-        if abs(error) <= self.FACING_TOLERANCE:
+        if abs(error) <= logic.FACING_TOLERANCE:
             self.get_logger().info(
                 f"Already facing target (error {math.degrees(error):.1f} deg)"
             )
@@ -1160,7 +1050,7 @@ class NavigateToGoalServer(Node):
         )
         rotate_request = Rotate.Request()
         rotate_request.degrees = float(math.degrees(error))
-        rotate_request.tolerance_degrees = float(math.degrees(self.FACING_TOLERANCE))
+        rotate_request.tolerance_degrees = float(math.degrees(logic.FACING_TOLERANCE))
         return bool(self.rotate_callback(rotate_request, Rotate.Response()).success)
 
     def nav2_to_tf_callback(self, request, response):
@@ -1212,7 +1102,7 @@ class NavigateToGoalServer(Node):
                 robot_tf = self._lookup_pose('base_link', timeout_sec=1.0)
                 robot_x = robot_tf.transform.translation.x
                 robot_y = robot_tf.transform.translation.y
-                robot_yaw = self.quaternion_to_yaw(robot_tf.transform.rotation)
+                robot_yaw = quaternion_to_yaw(robot_tf.transform.rotation)
                 self.get_logger().info(f"Current robot pose: x={robot_x:.3f}, y={robot_y:.3f}, yaw={math.degrees(robot_yaw):.1f}°")
             except Exception as e:
                 response.success = False
@@ -1253,8 +1143,8 @@ class NavigateToGoalServer(Node):
                 # the raw distance to the target: the robot can be well inside
                 # stop_distance and still be on entirely the wrong side.
                 pose_error = math.hypot(goal_x - robot_x, goal_y - robot_y)
-                yaw_error = abs(self.normalize_angle(goal_yaw - robot_yaw))
-                if pose_error <= self.STANDOFF_TOLERANCE and yaw_error <= self.FACING_TOLERANCE:
+                yaw_error = abs(normalize_angle(goal_yaw - robot_yaw))
+                if pose_error <= logic.STANDOFF_TOLERANCE and yaw_error <= logic.FACING_TOLERANCE:
                     response.success = True
                     response.message = f"Already at the {requested_side} standoff pose."
                     self.get_logger().info(response.message)
@@ -1371,41 +1261,25 @@ class NavigateToGoalServer(Node):
                 final_x = final_tf.transform.translation.x
                 final_y = final_tf.transform.translation.y
 
-                final_distance = math.hypot(target_x - final_x, target_y - final_y)
-
                 if directed:
                     # Correct means BOTH the right radial distance and the right
                     # side of the target.
-                    expected_bearing = SIDE_OFFSETS[requested_side]
-                    actual_bearing = math.atan2(final_y - target_y, final_x - target_x)
-                    bearing_error = abs(self.normalize_angle(actual_bearing - expected_bearing))
                     standoff = object_radius + stop_distance
+                    ok, final_distance, log_msg = logic.verify_directed_standoff(
+                        final_x, final_y, target_x, target_y, requested_side, standoff)
 
-                    distance_ok = abs(final_distance - standoff) <= self.STANDOFF_TOLERANCE
-                    side_ok = bearing_error <= self.SIDE_BEARING_TOLERANCE
-
-                    log_msg = (
-                        f"Final: distance {final_distance:.3f}m (want {standoff:.3f}m), "
-                        f"bearing off by {math.degrees(bearing_error):.1f}° from side "
-                        f"{requested_side}"
-                    )
-
-                    if distance_ok and side_ok:
+                    if ok:
                         response.success = True
                         response.message = f"Parked on the {requested_side} side of '{target_tf_name}'."
                         self.get_logger().info(log_msg + " - Success!")
                     else:
                         response.success = False
-                        wrong = "distance" if not distance_ok else "side"
-                        response.message = f"Ended up with the wrong {wrong}. {log_msg}"
-                        self.get_logger().warning(log_msg + f" - wrong {wrong}")
+                        response.message = log_msg
+                        self.get_logger().warning(log_msg)
                 else:
-                    within_tolerance = final_distance <= (stop_distance + self.STANDOFF_TOLERANCE)
-                    log_msg = (
-                        f"Final distance to target: {final_distance:.3f}m "
-                        f"(goal: {stop_distance:.3f}m, within_tolerance: {within_tolerance})"
-                    )
-                    if within_tolerance:
+                    ok, final_distance, log_msg = logic.verify_auto_standoff(
+                        final_x, final_y, target_x, target_y, stop_distance)
+                    if ok:
                         self.get_logger().info(log_msg + " - Success!")
                         response.success = True
                         response.message = f"Stopped {final_distance:.2f}m from '{target_tf_name}'."
@@ -1424,8 +1298,6 @@ class NavigateToGoalServer(Node):
             self.get_logger().error(f"Error in nav2_to_tf_callback: {e}")
             response.success = False
             response.message = f"Error in nav2_to_tf_callback: {e}"
-            return response
-            response.success = False
             return response
 
 def main():

@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
-import yaml
-import os
-import rclpy
 import math
-import numpy as np
-from collections import defaultdict
+import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -16,22 +12,18 @@ from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
 from skuba_navigation.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from skuba_navigation.zone_detection import (
+    ZONES,
+    HALF_WIDTH_DEG,
+    accumulate_zone_hits,
+    best_zone,
+    new_zone_accumulator,
+    save_location_to_yaml,
+    yaw_for_side,
+)
 
-NAMESPACE    = 'skuba/cheesecake/nav'
+NAMESPACE    = 'skuba/navigation'
 PACKAGE_NAME = 'skuba_navigation'
-
-ZONES = {
-    "FRONT":       0.0,
-    "FRONT_LEFT":  45.0,
-    "LEFT":        90.0,
-    "BACK_LEFT":   135.0,
-    "BACK":        180.0,
-    "BACK_RIGHT":  225.0,
-    "RIGHT":       270.0,
-    "FRONT_RIGHT": 315.0,
-}
-HALF_WIDTH_DEG   = 25.0
-OBSTACLE_RANGE   = 1.0   # m
 ACCUMULATE_SCANS = 10
 
 
@@ -45,7 +37,7 @@ class SaveLocationServer(Node):
         self.static_broadcaster = StaticTransformBroadcaster(self)
 
         self.latest_scan = None
-        self.zone_accumulator: dict[str, int] = defaultdict(int)
+        self.zone_accumulator = new_zone_accumulator()
         self.scan_count = 0
 
         self.scan_sub = self.create_subscription(
@@ -75,7 +67,7 @@ class SaveLocationServer(Node):
 
         self.srv = self.create_service(
             SaveLocationWithSide,
-            f'{NAMESPACE}/save_location_with_side',
+            f'/{NAMESPACE}/save_location_with_side',
             self.save_location_callback,
             callback_group=self.callback_group
         )
@@ -92,29 +84,7 @@ class SaveLocationServer(Node):
 
     def scan_callback(self, msg: LaserScan) -> None:
         self.latest_scan = msg
-
-        ranges   = np.array(msg.ranges)
-        ranges[~np.isfinite(ranges)] = np.inf
-
-        num_beams = len(msg.ranges)
-        # TF base_link→laser: yaw=π, roll=0 → θ_base = θ_laser + π
-        # (pure 180° yaw about Z; laser X points to robot rear. The previous
-        #  π - θ_laser reflected the angle and swapped robot left/right.)
-        angles    = np.pi + (msg.angle_min + np.arange(num_beams) * msg.angle_increment)
-        half_rad  = math.radians(HALF_WIDTH_DEG)
-
-        for side, center_deg in ZONES.items():
-            center_rad = math.radians(center_deg)
-            # circular diff → [-π, π]  หลีกเลี่ยง ±180° wraparound
-            diff     = (angles - center_rad + math.pi) % (2.0 * math.pi) - math.pi
-            zone_idx = np.where(np.abs(diff) <= half_rad)[0]
-
-            zone_ranges = ranges[zone_idx]
-            hits = int(np.sum(
-                (zone_ranges >= msg.range_min) & (zone_ranges <= OBSTACLE_RANGE)
-            ))
-            self.zone_accumulator[side] += hits
-
+        accumulate_zone_hits(msg, self.zone_accumulator)
         self.scan_count += 1
 
     # =========================================================================
@@ -122,9 +92,8 @@ class SaveLocationServer(Node):
     # =========================================================================
 
     def identify_side(self) -> str:
-        # reset แล้วรอสะสมใหม่
-        self.zone_accumulator = defaultdict(int)
-        self.scan_count       = 0
+        self.zone_accumulator = new_zone_accumulator()
+        self.scan_count = 0
 
         self.get_logger().info(
             f"Accumulating {ACCUMULATE_SCANS} scans to identify side..."
@@ -134,17 +103,7 @@ class SaveLocationServer(Node):
             rclpy.spin_once(self, timeout_sec=0.1)
 
         self.get_logger().info(f"Zone hit counts: {dict(self.zone_accumulator)}")
-
-        best_side = max(self.zone_accumulator, key=self.zone_accumulator.get)
-        if self.zone_accumulator[best_side] == 0:
-            return "NONE"
-        return best_side
-
-    # =========================================================================
-    # TF helpers
-    # =========================================================================
-
-    # quaternion_to_yaw / yaw_to_quaternion now live in geometry_utils.
+        return best_zone(self.zone_accumulator)
 
     # =========================================================================
     # Service callback
@@ -155,7 +114,6 @@ class SaveLocationServer(Node):
         self.get_logger().info(f"--- Request to save location: '{location_name}' ---")
 
         try:
-            # ── 1. Get current pose ───────────────────────────────────────────
             tf = self.tf_buffer.lookup_transform(
                 'map',
                 'base_link',
@@ -164,62 +122,21 @@ class SaveLocationServer(Node):
             )
             current_yaw = quaternion_to_yaw(tf.transform.rotation)
 
-            # ── 2. Identify side via accumulated scans ────────────────────────
             detected_side = self.identify_side()
             self.get_logger().info(f"Detected side: {detected_side}")
 
-            # ── 3. Orient yaw toward obstacle ─────────────────────────────────
-            side_offset = {
-                "FRONT":       0.0,
-                "FRONT_LEFT":  math.pi / 4.0,
-                "LEFT":        math.pi / 2.0,
-                "BACK_LEFT":   3.0 * math.pi / 4.0,
-                "BACK":        math.pi,
-                "BACK_RIGHT": -3.0 * math.pi / 4.0,
-                "RIGHT":      -math.pi / 2.0,
-                "FRONT_RIGHT": -math.pi / 4.0,
-                "NONE":        0.0,
-            }
-            final_yaw = current_yaw + side_offset.get(detected_side, 0.0)
+            final_yaw = yaw_for_side(current_yaw, detected_side)
             q_final_z, q_final_w = yaw_to_quaternion(final_yaw)
 
-            # ── 4. Load existing YAML ─────────────────────────────────────────
-            data = {"positions": {}}
-            if self.yaml_path.exists():
-                try:
-                    with open(self.yaml_path, 'r') as f:
-                        loaded = yaml.safe_load(f)
-                        if loaded and "positions" in loaded:
-                            data = loaded
-                except Exception as e:
-                    self.get_logger().error(f"YAML load error: {e}")
+            save_location_to_yaml(
+                self.yaml_path,
+                location_name,
+                detected_side,
+                (tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
+                (0.0, 0.0, q_final_z, q_final_w),
+            )
 
-            # ── 5. Write position ─────────────────────────────────────────────
-            data["positions"][location_name] = {
-                "header": {
-                    "frame_id": "map",
-                    "side": detected_side,
-                },
-                "pose": {
-                    "position": {
-                        "x": tf.transform.translation.x,
-                        "y": tf.transform.translation.y,
-                        "z": tf.transform.translation.z,
-                    },
-                    "orientation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": q_final_z,
-                        "w": q_final_w,
-                    },
-                },
-            }
-
-            os.makedirs(self.yaml_path.parent, exist_ok=True)
-            with open(self.yaml_path, 'w') as f:
-                yaml.safe_dump(data, f, default_flow_style=False)
-
-            # ── 6. Broadcast BAR static TF (identical to what was saved) ─────
+            # ── Broadcast BAR static TF (identical to what was saved) ─────
             t = TransformStamped()
             t.header.stamp    = self.get_clock().now().to_msg()
             t.header.frame_id = 'map'

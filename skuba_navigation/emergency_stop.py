@@ -6,6 +6,7 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from std_msgs.msg import Bool
 from kobuki_ros_interfaces.msg import DigitalInputEvent
+from skuba_navigation.estop_latch import EstopLatch
 
 
 class EmergencyStopNode(Node):
@@ -33,7 +34,7 @@ class EmergencyStopNode(Node):
         self.declare_parameter('lock_topic', 'e_stop')
         lock_topic: str = self.get_parameter('lock_topic').value
 
-        self._estop_active = False
+        self._latch = EstopLatch()
         self._shutdown = False
 
         # Latched (transient-local) so twist_mux gets the current lock state even
@@ -74,22 +75,21 @@ class EmergencyStopNode(Node):
 
     # ------------------------------------------------------------------
     def _digital_input_cb(self, msg: DigitalInputEvent) -> None:
-        if msg.values[0] and not self._estop_active:
-            self._estop_active = True
+        if msg.values[0] and self._latch.trigger():
             self._lock_pub.publish(Bool(data=True))  # raise lock immediately
             self.get_logger().warn('[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised.')
 
     # ------------------------------------------------------------------
     def _publish_loop(self) -> None:
         while not self._shutdown:
-            if self._estop_active:
+            if self._latch.is_active:
                 self._lock_pub.publish(Bool(data=True))
 
     # ------------------------------------------------------------------
     def destroy_node(self) -> None:
         self._shutdown = True
         self._pub_thread.join(timeout=1.0)
-        if self._estop_active:
+        if self._latch.is_active:
             # Keep the lock raised on shutdown — never silently release an e-stop.
             for _ in range(5):
                 self._lock_pub.publish(Bool(data=True))

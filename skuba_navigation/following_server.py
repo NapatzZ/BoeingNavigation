@@ -7,7 +7,7 @@ dynamic following (https://docs.nav2.org/tutorials/docs/navigation2_dynamic_poin
 
 Pipeline
   follow.py publishes the person's PoseStamped (map frame) on
-    /skuba/cheesecake/nav/person_pose
+    /skuba/navigation/person_pose
   This server sends ONE NavigateToPose goal using the follow_point.xml
   behavior tree.  Inside that tree:
     • GoalUpdater reads the SAME person-pose topic and keeps the goal current,
@@ -40,9 +40,9 @@ from ament_index_python.packages import get_package_share_directory
 
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
-from action_msgs.msg import GoalStatus
 
-from skuba_interfaces.srv import Following
+from std_srvs.srv import SetBool
+from skuba_navigation.follow_goal import pose_is_usable, goal_status_name
 
 # ─────────────────────────── tuneable constants ─────────────────────────── #
 SEND_RATE_HZ   = 2.0    # how often we check whether a goal needs (re)sending
@@ -50,8 +50,8 @@ POSE_TIMEOUT_S = 5.0    # s — person considered lost after this with no pose
 PACKAGE_NAME   = 'skuba_navigation'
 BT_REL_PATH    = 'behavior_trees/follow_point.xml'
 
-POSE_TOPIC     = '/skuba/cheesecake/nav/person_pose'
-SERVICE_NAME   = '/skuba/cheesecake/nav/following_server'
+POSE_TOPIC     = '/skuba/navigation/person_pose'
+SERVICE_NAME   = '/skuba/navigation/following_server'
 # ─────────────────────────────────────────────────────────────────────────── #
 
 
@@ -101,7 +101,7 @@ class FollowingServer(Node):
         # ── Subscription / service / timer ───────────────────────────────── #
         self.create_subscription(
             PoseStamped, POSE_TOPIC, self._pose_cb, _latest_qos)
-        self.create_service(Following, SERVICE_NAME, self._svc_cb)
+        self.create_service(SetBool, SERVICE_NAME, self._svc_cb)
         self.create_timer(1.0 / SEND_RATE_HZ, self._tick)
 
         self.get_logger().info('skuba_following_server ready.')
@@ -116,15 +116,15 @@ class FollowingServer(Node):
         self._person_pose   = msg
         self._person_pose_t = time.perf_counter()
 
-    def _svc_cb(self, req: Following.Request,
-                res: Following.Response) -> Following.Response:
+    def _svc_cb(self, req: SetBool.Request,
+                res: SetBool.Response) -> SetBool.Response:
         """Enable / disable following."""
-        self._enabled = req.enable
+        self._enabled = req.data
         if not self._enabled:
             self._cancel_goal()
         res.success = True
-        self.get_logger().info(
-            f'FollowingServer {"ENABLED" if req.enable else "DISABLED"}')
+        res.message = f'FollowingServer {"ENABLED" if req.data else "DISABLED"}'
+        self.get_logger().info(res.message)
         return res
 
     # ─────────────────────────── main tick ──────────────────────────────── #
@@ -146,7 +146,8 @@ class FollowingServer(Node):
                 'Enabled but no person pose received yet — waiting …',
                 throttle_duration_sec=3.0)
             return
-        if time.perf_counter() - self._person_pose_t > POSE_TIMEOUT_S:
+        pose_age = time.perf_counter() - self._person_pose_t
+        if not pose_is_usable(self._person_pose, pose_age, POSE_TIMEOUT_S):
             self.get_logger().warn(
                 'Person pose is stale — waiting for re-acquisition before sending goal',
                 throttle_duration_sec=3.0)
@@ -183,13 +184,8 @@ class FollowingServer(Node):
         status = future.result().status
         self._goal_active = False
         self._goal_handle = None
-        names = {
-            GoalStatus.STATUS_SUCCEEDED: 'SUCCEEDED',
-            GoalStatus.STATUS_ABORTED:   'ABORTED',
-            GoalStatus.STATUS_CANCELED:  'CANCELED',
-        }
         self.get_logger().info(
-            f'Follow goal ended: {names.get(status, status)}'
+            f'Follow goal ended: {goal_status_name(status)}'
             + ('  → will resend' if self._enabled else ''))
 
     def _cancel_goal(self) -> None:
