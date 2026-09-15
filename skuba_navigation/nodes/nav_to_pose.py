@@ -53,11 +53,15 @@ class NavigateToGoalServer(Node):
         # Initialize services
         self._init_services()
         
-        # Create velocity publisher.
-        # twist_mux "navigation" input (priority 10). See params/twist_mux.yaml.
-        self.cmd_vel_publisher = self.create_publisher(
+        # Velocity publisher for the manual point-turn/straight-line moves
+        # below (rotate / move_forward / nudge_to_tf) — these bypass Nav2's
+        # planner entirely, so they get their own twist_mux lane
+        # (cmd_vel_nav_manual, priority 10) rather than sharing cmd_vel_nav
+        # with collision_monitor's filtered Nav2 output. See
+        # params/twist_mux.yaml.
+        self.cmd_vel_manual_publisher = self.create_publisher(
             Twist,
-            'cmd_vel_nav',
+            'cmd_vel_nav_manual',
             10
         )
         
@@ -78,8 +82,8 @@ class NavigateToGoalServer(Node):
         # Service to cancel navigation
         self._cancel_service = self.create_service(
             Trigger,
-            f'/{NAMESPACE}/goal_cancel',
-            self.cancel_callback,
+            f'/{NAMESPACE}/cancel_goal',
+            self.cancel_goal_callback,
             callback_group=self.callback_group
         )
 
@@ -94,8 +98,8 @@ class NavigateToGoalServer(Node):
         # Service to save the current position
         self._save_position_service = self.create_service(
             SaveLocationCommand,
-            f'/{NAMESPACE}/save_location',
-            self.save_position_callback,
+            f'/{NAMESPACE}/save_pose',
+            self.save_pose_callback,
             callback_group=self.callback_group
         )
 
@@ -131,27 +135,27 @@ class NavigateToGoalServer(Node):
             callback_group=self.callback_group
         )
 
-        # Service to move wheel
+        # Service to move forward/backward a straight-line distance
         self._move_forward_service = self.create_service(
             MoveWheel,
-            f'/{NAMESPACE}/move_wheel',
-            self.move_wheel_callback,
+            f'/{NAMESPACE}/move_forward',
+            self.move_forward_callback,
             callback_group=self.callback_group
         )
 
-        # Service to navigate to TF frame at 70% distance
-        self._nav_to_tf_service = self.create_service(
+        # Service to nudge towards a TF frame via raw cmd_vel (no Nav2 planning)
+        self._nudge_to_tf_service = self.create_service(
             NavToTF,
-            f'/{NAMESPACE}/nav_to_tf',
-            self.nav_to_tf_callback,
+            f'/{NAMESPACE}/nudge_to_tf',
+            self.nudge_to_tf_callback,
             callback_group=self.callback_group
         )
 
         # Service to navigate to TF using Nav2 Simple Commander (stop at stop_distance)
-        self._nav2_to_tf_service = self.create_service(
+        self._nav_to_tf_service = self.create_service(
             Nav2ToTF,
-            f'/{NAMESPACE}/nav2_to_tf',
-            self.nav2_to_tf_callback,
+            f'/{NAMESPACE}/nav_to_tf',
+            self.nav_to_tf_callback,
             callback_group=self.callback_group
         )
         
@@ -388,7 +392,7 @@ class NavigateToGoalServer(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to clear costmaps: {e}")
     
-    def cancel_callback(self, req, res):
+    def cancel_goal_callback(self, req, res):
         """
         Service callback to cancel current navigation.
         Args:
@@ -403,7 +407,7 @@ class NavigateToGoalServer(Node):
             res.success = True
             res.message = "Navigation goal canceled."
         except Exception as e:
-            self.get_logger().error(f"Error in cancel_callback: {e}")
+            self.get_logger().error(f"Error in cancel_goal_callback: {e}")
             res.success = False
             res.message = f"Error canceling goal: {e}"
         return res
@@ -460,7 +464,7 @@ class NavigateToGoalServer(Node):
         """Publish a zero Twist `repeats` times to force the heavy base to stop."""
         twist = Twist()
         for _ in range(repeats):
-            self.cmd_vel_publisher.publish(twist)
+            self.cmd_vel_manual_publisher.publish(twist)
             time.sleep(delay)
     
     def rotate_callback(self, request, response):
@@ -532,7 +536,7 @@ class NavigateToGoalServer(Node):
 
                     # B/C. PD output + speed constraints (see nav_to_pose_logic)
                     twist.angular.z = logic.compute_rotation_command(angle_diff, error_rate)
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
 
                     # Run at 50Hz
                     time.sleep(0.02)
@@ -566,12 +570,12 @@ class NavigateToGoalServer(Node):
                 # Emergency Stop
                 twist = Twist()
                 twist.angular.z = 0.0
-                self.cmd_vel_publisher.publish(twist)
+                self.cmd_vel_manual_publisher.publish(twist)
                 response.success = False
             
             return response
     
-    def move_wheel_callback(self, request, response):
+    def move_forward_callback(self, request, response):
         """
         Service callback to move the robot forward by a specified distance with feedback.
         Args:
@@ -604,11 +608,11 @@ class NavigateToGoalServer(Node):
                 
                 start_time = time.time()
                 while time.time() - start_time < duration and rclpy.ok():
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                     time.sleep(0.1)
                 
                 twist.linear.x = 0.0
-                self.cmd_vel_publisher.publish(twist)
+                self.cmd_vel_manual_publisher.publish(twist)
                 response.success = True
                 return response
             
@@ -647,20 +651,20 @@ class NavigateToGoalServer(Node):
                     else:
                         twist.linear.x = linear_speed
                     
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                     
                 except Exception:
                     # If TF fails, continue with current speed
                     twist.linear.x = linear_speed
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                 
                 time.sleep(0.1)  # 10Hz control loop
             
             # Stop movement
             twist.linear.x = 0.0
-            self.cmd_vel_publisher.publish(twist)
+            self.cmd_vel_manual_publisher.publish(twist)
             time.sleep(0.1)
-            self.cmd_vel_publisher.publish(twist)  # Ensure stop
+            self.cmd_vel_manual_publisher.publish(twist)  # Ensure stop
             
             # Verify final distance
             try:
@@ -679,12 +683,12 @@ class NavigateToGoalServer(Node):
                 response.success = True  # Assume success if can't verify
                 
         except Exception as e:
-            self.get_logger().error(f"Error in move_wheel_callback: {e}")
+            self.get_logger().error(f"Error in move_forward_callback: {e}")
             response.success = False
-        
+
         return response
-    
-    def save_position_callback(self, request, response):
+
+    def save_pose_callback(self, request, response):
         """
         Service callback to save the current position with a name using TF transform.
         Args:
@@ -739,7 +743,7 @@ class NavigateToGoalServer(Node):
                 response.success = False
                 
         except Exception as e:
-            self.get_logger().error(f"Error in save_position_callback: {e}")
+            self.get_logger().error(f"Error in save_pose_callback: {e}")
             response.success = False
         
         return response
@@ -764,7 +768,7 @@ class NavigateToGoalServer(Node):
             response.message = f"Error reloading YAML file: {str(e)}"
         return response
     
-    def nav_to_tf_callback(self, request, response):
+    def nudge_to_tf_callback(self, request, response):
         """
         Service callback to navigate to a fixed remaining distance towards a TF frame using cmd_vel.
         The robot will move towards the target TF frame but stop when it is a specified distance away,
@@ -856,11 +860,11 @@ class NavigateToGoalServer(Node):
                         break
 
                     twist.angular.z = angular_speed if remaining_angle > 0 else -angular_speed
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                     time.sleep(0.05)
 
                 twist.angular.z = 0.0
-                self.cmd_vel_publisher.publish(twist)
+                self.cmd_vel_manual_publisher.publish(twist)
                 time.sleep(0.1)
 
             # Step 2: Move forward the target distance
@@ -895,19 +899,19 @@ class NavigateToGoalServer(Node):
                     remaining_distance = target_distance - distance_traveled
                     twist.linear.x = linear_speed * 0.3 if remaining_distance < 0.1 else linear_speed
 
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
 
                 except Exception:
                     twist.linear.x = linear_speed
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
 
                 time.sleep(0.1)
 
             twist.linear.x = 0.0
             twist.angular.z = 0.0
-            self.cmd_vel_publisher.publish(twist)
+            self.cmd_vel_manual_publisher.publish(twist)
             time.sleep(0.1)
-            self.cmd_vel_publisher.publish(twist)
+            self.cmd_vel_manual_publisher.publish(twist)
 
             # Optional: Rotate to face the target object TF frame
             self.get_logger().info(f"Rotating to face target object TF frame: {target_tf_name}")
@@ -955,13 +959,13 @@ class NavigateToGoalServer(Node):
 
                         speed = angular_speed * 0.5 if abs(remaining_angle) < math.radians(10) else angular_speed
                         twist.angular.z = speed if remaining_angle > 0 else -speed
-                        self.cmd_vel_publisher.publish(twist)
+                        self.cmd_vel_manual_publisher.publish(twist)
                         time.sleep(0.05)
 
                     twist.angular.z = 0.0
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                     time.sleep(0.1)
-                    self.cmd_vel_publisher.publish(twist)
+                    self.cmd_vel_manual_publisher.publish(twist)
                     self.get_logger().info("Robot is now facing the target object")
                 else:
                     self.get_logger().info("Robot is already facing the target object (within 3°)")
@@ -993,7 +997,7 @@ class NavigateToGoalServer(Node):
                 response.success = True
 
         except Exception as e:
-            self.get_logger().error(f"Error in nav_to_tf_callback: {e}")
+            self.get_logger().error(f"Error in nudge_to_tf_callback: {e}")
             response.success = False
 
         return response
@@ -1053,7 +1057,7 @@ class NavigateToGoalServer(Node):
         rotate_request.tolerance_degrees = float(math.degrees(logic.FACING_TOLERANCE))
         return bool(self.rotate_callback(rotate_request, Rotate.Response()).success)
 
-    def nav2_to_tf_callback(self, request, response):
+    def nav_to_tf_callback(self, request, response):
         """
         Service callback to navigate towards a TF frame using Nav2 Simple Commander.
 
@@ -1295,9 +1299,9 @@ class NavigateToGoalServer(Node):
             return response
 
         except Exception as e:
-            self.get_logger().error(f"Error in nav2_to_tf_callback: {e}")
+            self.get_logger().error(f"Error in nav_to_tf_callback: {e}")
             response.success = False
-            response.message = f"Error in nav2_to_tf_callback: {e}"
+            response.message = f"Error in nav_to_tf_callback: {e}"
             return response
 
 def main():

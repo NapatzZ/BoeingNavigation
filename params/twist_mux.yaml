@@ -7,10 +7,24 @@
 #
 #   source     input topic      priority   notes
 #   ────────   ──────────────   ────────   ───────────────────────────────────
-#   joystick   cmd_vel_joy         100     teleop_twist_joy (xbox) — human override
-#   keyboard   cmd_vel_key          90     teleop_twist_keyboard
-#   follower   cmd_vel_follow       50     follower.py (person follow)
-#   nav2       cmd_vel_nav          10     collision_monitor cmd_vel_out_topic
+#   joystick   cmd_vel_joy          100    teleop_twist_joy (xbox) — human override
+#   keyboard   cmd_vel_key           90    teleop_twist_keyboard
+#   nav2       cmd_vel_nav           10    collision_monitor cmd_vel_out_topic
+#   nav manual cmd_vel_nav_manual    10    nav_to_pose.py: rotate/move_forward/nudge_to_tf
+#
+# cmd_vel_nav and cmd_vel_nav_manual share priority 10 deliberately: both are
+# nav_to_pose_server's own output, and it only ever drives one at a time
+# (a NavigateToPose goal XOR a manual rotate/move/nudge service call), so
+# there is no real arbitration between them — the split exists only so
+# nav_to_pose's raw point-turn/straight-line commands (which bypass Nav2's
+# planner and therefore collision_monitor's safety filter entirely) never
+# share a topic with collision_monitor's own filtered output. Two publishers
+# on the same topic would otherwise race.
+#
+# There is no dedicated "follower" lane: following_server.py drives person
+# tracking through Nav2's NavigateToPose action (GoalUpdater pattern), so its
+# output already lands on cmd_vel_nav via collision_monitor like any other
+# Nav2 goal — it does not publish cmd_vel directly.
 #
 # The e_stop LOCK (std_msgs/Bool) sits above everything: while it publishes
 # `true`, twist_mux blocks every input (priority < 255) and the base receives no
@@ -29,12 +43,12 @@ twist_mux:
         topic: cmd_vel_key
         timeout: 0.5
         priority: 90
-      follower:
-        topic: cmd_vel_follow
-        timeout: 0.5
-        priority: 50
       navigation:
         topic: cmd_vel_nav
+        timeout: 0.5
+        priority: 10
+      navigation_manual:
+        topic: cmd_vel_nav_manual
         timeout: 0.5
         priority: 10
 

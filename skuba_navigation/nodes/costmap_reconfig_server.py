@@ -11,6 +11,8 @@ Pure validation/YAML/dict logic lives in costmap_config.py; this file only
 wires up services and the rclpy parameter-client calls that logic needs.
 """
 
+import os
+
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -104,6 +106,7 @@ class CostmapReconfigServer(Node):
 
         # ── Misc setup ────────────────────────────────────────────────────────
         self.validation_rules = cc.load_validation_rules()
+        self.get_logger().info(f"Loaded {len(self.validation_rules)} validation rules")
         self.initialize_config_file()
 
         self.get_logger().info("Costmap Reconfig Server ready.")
@@ -464,9 +467,15 @@ class CostmapReconfigServer(Node):
         return response
 
     def initialize_config_file(self):
+        """Seed the dynamic config file with defaults, but never on top of an
+        existing one — otherwise every node restart would silently discard
+        whatever an operator has tuned since the last colcon build."""
+        if os.path.exists(self.config_path):
+            self.get_logger().info(f"Using existing config file: {self.config_path}")
+            return
         try:
             cc.write_config(self.config_path, cc.get_original_config())
-            self.get_logger().info("Config file initialized with original values")
+            self.get_logger().info("Config file did not exist — initialized with original values")
         except Exception as e:
             self.get_logger().error(f"Error initializing config file: {str(e)}")
 

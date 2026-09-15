@@ -108,18 +108,18 @@ All under the `/skuba/navigation/` namespace unless noted.
 
 From `nav_to_pose`:
 
-| Service | Type |
-| --- | --- |
-| `nav_to_name` | `NavToName` |
-| `nav_to_position` | `NavToPose` |
-| `nav_to_tf` | `NavToTF` |
-| `nav2_to_tf` | `Nav2ToTF` |
-| `rotate` | `Rotate` |
-| `move_wheel` | `MoveWheel` |
-| `goal_cancel` | `GoalCancel` |
-| `clear_costmap` | `ClearCostmap` |
-| `save_location` | `SaveLocationCommand` |
-| `reload_yaml` | `Trigger` |
+| Service | Type | Notes |
+| --- | --- | --- |
+| `nav_to_name` | `NavToName` | go to a saved named position |
+| `nav_to_position` | `NavToPose` | go to an explicit `PoseStamped` |
+| `nav_to_tf` | `Nav2ToTF` | go to a standoff pose near a TF frame, via Nav2's planner (supports `approach_side`) |
+| `nudge_to_tf` | `NavToTF` | move towards a TF frame via raw `cmd_vel`, no Nav2 planning |
+| `rotate` | `Rotate` | in-place PD-controlled rotation |
+| `move_forward` | `MoveWheel` | straight-line forward/backward move via raw `cmd_vel` |
+| `cancel_goal` | `std_srvs/Trigger` | cancel the active Nav2 goal |
+| `clear_costmap` | `std_srvs/Trigger` | clear local + global costmaps |
+| `save_pose` | `SaveLocationCommand` | save the current pose under a name |
+| `reload_yaml` | `std_srvs/Trigger` | reload saved positions from `share/saved_pose.yaml` |
 
 From the other nodes:
 
@@ -129,7 +129,7 @@ From the other nodes:
 | `door_detector/toggle` | `door_detector` |
 | `costmap_reconfig`, `reset_costmap_config`, `controller_reconfig` | `costmap_reconfig_server` |
 | `enable_backward_mode`, `disable_backward_mode` | `costmap_reconfig_server` |
-| `following_server` | `following_server` |
+| `toggle_following` (`std_srvs/SetBool`) | `following_server` |
 | `filter_lidar` | `filter_lidar` |
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in

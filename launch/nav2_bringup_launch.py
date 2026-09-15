@@ -204,8 +204,8 @@ def generate_launch_description():
                 name='emergency_stop',
                 output='screen',
             ),
-            # twist_mux: arbitrates cmd_vel_joy / cmd_vel_key / cmd_vel_follow /
-            # cmd_vel_nav (+ e_stop lock) into the single /cmd_vel the base drives.
+            # twist_mux: arbitrates cmd_vel_joy / cmd_vel_key / cmd_vel_nav
+            # (+ e_stop lock) into the single /cmd_vel the base drives.
             *([
                 Node(
                     package='twist_mux',

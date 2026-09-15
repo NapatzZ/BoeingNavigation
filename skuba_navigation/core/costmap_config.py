@@ -24,41 +24,35 @@ PARAM_MAPPING = {
     'raytrace_max_range': 'voxel_layer.scan.raytrace_max_range'
 }
 
-# Controller parameter mapping: simple name -> full parameter path on /controller_server
-# These are FollowPath (DWB / RPP) parameters — adjust plugin prefix to match your config.
-# Common prefixes: "FollowPath" (RPP), "FollowPath.critics" (DWB).
-CONTROLLER_PARAM_MAPPING = {
-    'allow_reversing':         'FollowPath.allow_reversing',          # bool
-    'min_vel_x':               'FollowPath.min_vel_x',                # double (negative = allow backward)
-    'max_vel_x':               'FollowPath.max_vel_x',                # double
-    'max_vel_x_backwards':     'FollowPath.max_vel_x_backwards',      # double (RPP only)
-    'max_vel_theta':           'FollowPath.max_vel_theta',             # double
-    'min_speed_xy':            'FollowPath.min_speed_xy',             # double
-    'max_speed_xy':            'FollowPath.max_speed_xy',             # double
+# Controller parameter registry — single source of truth (simple name ->
+# full path on /controller_server, ParameterType, backward-mode-enable value,
+# normal-mode-default value). A None enable/default means that param is
+# reachable via controller_reconfig but is not touched by
+# enable_backward_mode/disable_backward_mode.
+# These are FollowPath (DWB / RPP) parameters — adjust plugin prefix to match
+# your config. Common prefixes: "FollowPath" (RPP), "FollowPath.critics" (DWB).
+_CONTROLLER_PARAMS = {
+    # name                    full path                          type                              backward  normal
+    'allow_reversing':     ('FollowPath.allow_reversing',     ParameterType.PARAMETER_BOOL,    True,  False),
+    'min_vel_x':           ('FollowPath.min_vel_x',           ParameterType.PARAMETER_DOUBLE, -0.7,   0.0),
+    'max_vel_x':           ('FollowPath.max_vel_x',           ParameterType.PARAMETER_DOUBLE,  0.0,   0.5),
+    'max_vel_x_backwards': ('FollowPath.max_vel_x_backwards', ParameterType.PARAMETER_DOUBLE,  0.8,   0.3),
+    'max_vel_theta':       ('FollowPath.max_vel_theta',       ParameterType.PARAMETER_DOUBLE,  None,  None),
+    'min_speed_xy':        ('FollowPath.min_speed_xy',        ParameterType.PARAMETER_DOUBLE,  None,  None),
+    'max_speed_xy':        ('FollowPath.max_speed_xy',        ParameterType.PARAMETER_DOUBLE,  None,  None),
 }
 
-CONTROLLER_PARAM_TYPES = {
-    'allow_reversing':         ParameterType.PARAMETER_BOOL,
-    'min_vel_x':               ParameterType.PARAMETER_DOUBLE,
-    'max_vel_x':               ParameterType.PARAMETER_DOUBLE,
-    'max_vel_x_backwards':     ParameterType.PARAMETER_DOUBLE,
-    'max_vel_theta':           ParameterType.PARAMETER_DOUBLE,
-    'min_speed_xy':            ParameterType.PARAMETER_DOUBLE,
-    'max_speed_xy':            ParameterType.PARAMETER_DOUBLE,
-}
-
+CONTROLLER_PARAM_MAPPING = {name: path for name, (path, _, _, _) in _CONTROLLER_PARAMS.items()}
+CONTROLLER_PARAM_TYPES = {name: ptype for name, (_, ptype, _, _) in _CONTROLLER_PARAMS.items()}
 BACKWARD_MODE_ENABLE_CHANGES = [
-    ('allow_reversing',     True,  ParameterType.PARAMETER_BOOL),
-    ('max_vel_x',           0.0,   ParameterType.PARAMETER_DOUBLE),
-    ('min_vel_x',          -0.7,   ParameterType.PARAMETER_DOUBLE),
-    ('max_vel_x_backwards', 0.8,   ParameterType.PARAMETER_DOUBLE),
+    (name, enable_val, ptype)
+    for name, (_, ptype, enable_val, _) in _CONTROLLER_PARAMS.items()
+    if enable_val is not None
 ]
-
 BACKWARD_MODE_DEFAULTS = {
-    'allow_reversing':     (False, ParameterType.PARAMETER_BOOL),
-    'max_vel_x':           (0.5,   ParameterType.PARAMETER_DOUBLE),
-    'min_vel_x':           (0.0,   ParameterType.PARAMETER_DOUBLE),
-    'max_vel_x_backwards': (0.3,   ParameterType.PARAMETER_DOUBLE),
+    name: (default_val, ptype)
+    for name, (_, ptype, _, default_val) in _CONTROLLER_PARAMS.items()
+    if default_val is not None
 }
 
 

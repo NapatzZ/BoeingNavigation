@@ -51,7 +51,7 @@ PACKAGE_NAME   = 'skuba_navigation'
 BT_REL_PATH    = 'behavior_trees/follow_point.xml'
 
 POSE_TOPIC     = '/skuba/navigation/person_pose'
-SERVICE_NAME   = '/skuba/navigation/following_server'
+SERVICE_NAME   = '/skuba/navigation/toggle_following'
 # ─────────────────────────────────────────────────────────────────────────── #
 
 
