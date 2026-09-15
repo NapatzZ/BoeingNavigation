@@ -42,7 +42,7 @@ from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 
 from std_srvs.srv import SetBool
-from skuba_navigation.follow_goal import pose_is_usable, goal_status_name
+from ..core.follow_goal import pose_is_usable, goal_status_name
 
 # ─────────────────────────── tuneable constants ─────────────────────────── #
 SEND_RATE_HZ   = 2.0    # how often we check whether a goal needs (re)sending

@@ -37,7 +37,7 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
 
-from skuba_navigation.door_detection import DoorDetector
+from ..core.door_detection import DoorDetector
 
 NAMESPACE = 'skuba/navigation'
 

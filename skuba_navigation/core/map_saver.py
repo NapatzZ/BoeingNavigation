@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-usage : ros2 run skuba_navigation map_saver --name kuy_gu_dum --dir some/dir/path
+Serializes the current SLAM Toolbox map to disk. Used by map_save_cli's
+interactive `ros2 run skuba_navigation map_save_cli` helper.
 
-The map is saved into its own subfolder: <dir>/<name>/<name>.{pgm,yaml,data,posegraph}
+Matches the maps/ layout convention (maps/<category>/<name>.{pgm,yaml,data,
+posegraph}, e.g. maps/30_skuba_home/skuba_home.pgm) instead of inventing an
+extra per-map subfolder: `category` is the existing (or new) category folder
+under `maps_root`, and the map files are written directly into it.
 """
 import subprocess
-import sys
 import os
-import argparse
 
 class MapSaver:
-    def __init__(self, map_name="skuba_map", save_directory=None):
+    def __init__(self, map_name="skuba_map", category="", maps_root=None):
         self.map_name = map_name
-        base_directory = save_directory or os.getcwd()
-        # Each map gets its own subfolder: <dir>/<name>/<name>.{pgm,yaml,data,posegraph}
-        self.save_directory = os.path.join(base_directory, self.map_name)
+        # expanduser: a literal "~" typed into a save-path prompt is not
+        # shell-expanded by input() — without this it creates a folder
+        # named "~" instead of resolving to $HOME.
+        maps_root = os.path.expanduser(maps_root) if maps_root else os.getcwd()
+        self.save_directory = os.path.join(maps_root, category) if category else maps_root
         self.map_path = os.path.join(self.save_directory, self.map_name)
-        
+
     def run_command(self, command):
         """Execute a command and return success status"""
         try:
@@ -59,18 +63,3 @@ class MapSaver:
         else:
             print("Both operations failed")
             return False
-
-def main():
-    parser = argparse.ArgumentParser(description="Save ROS2 maps")
-    parser.add_argument("--name", "-n", default="skuba_map", help="Map name")
-    parser.add_argument("--dir", "-d", help="Save directory")
-    
-    args = parser.parse_args()
-    
-    map_saver = MapSaver(args.name, args.dir)
-    success = map_saver.save_maps()
-    
-    sys.exit(0 if success else 1)
-
-if __name__ == "__main__":
-    main()

@@ -62,8 +62,13 @@ which get these via `nav2_bringup_launch.py`), so teleop driving during a
 mapping session reaches the robot through the same `cmd_vel` arbitration and
 software e-stop as the task launches use.
 
-Save the result under `maps/<NN_name>/`; `setup.py` installs the whole `maps/`
-tree, so a new folder is picked up on the next `colcon build` with no edits.
+`map_save_cli` prompts for a map name, an optional category folder (e.g.
+`30_skuba_home` — pick an existing one to add to it, or a new `NN_name` to
+start one), and the maps root (default `maps/`), then writes directly into
+`maps/<category>/<name>.{pgm,yaml,data,posegraph}` — matching the existing
+layout, not a further per-map subfolder. `setup.py` installs the whole `maps/`
+tree, so a new category folder is picked up on the next `colcon build` with
+no edits.
 
 ### Internal launch files
 
@@ -91,7 +96,7 @@ Executables registered in `setup.py`:
 | `emergency_stop` | Publishes the twist_mux e-stop lock |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
 | `person_cluster_filter` | Strips person-sized LiDAR clusters before SLAM (mapping only) |
-| `map_saver`, `map_save_cli` | Serialize the SLAM Toolbox map to disk |
+| `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
 
 `cmd_vel` arbitration is handled by `twist_mux` (`params/twist_mux.yaml`): joy,
 keyboard, follow and nav sources are muxed into the single `/cmd_vel` the base

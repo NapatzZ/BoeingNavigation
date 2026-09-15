@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import LaserScan
-from skuba_navigation.person_cluster import remove_person_clusters
+from ..core.person_cluster import remove_person_clusters
 
 
 class PersonClusterFilter(Node):

@@ -21,14 +21,14 @@ from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformListener, Buffer
 from pathlib import Path
-from skuba_navigation.geometry_utils import (
+from ..core.geometry_utils import (
     AUTO_SIDES,
     SIDE_OFFSETS,
     approach_pose_for_side,
     normalize_angle,
     quaternion_to_yaw,
 )
-from skuba_navigation import nav_to_pose_logic as logic
+from ..core import nav_to_pose_logic as logic
 
 NAMESPACE = 'skuba/navigation'
 package_name = 'skuba_navigation'

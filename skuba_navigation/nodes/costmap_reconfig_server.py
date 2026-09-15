@@ -21,7 +21,7 @@ from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
 from pathlib import Path
 from std_srvs.srv import Trigger
 
-from skuba_navigation import costmap_config as cc
+from ..core import costmap_config as cc
 
 NAMESPACE = 'skuba/navigation'
 

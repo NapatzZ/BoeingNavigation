@@ -6,7 +6,7 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from std_msgs.msg import Bool
 from kobuki_ros_interfaces.msg import DigitalInputEvent
-from skuba_navigation.estop_latch import EstopLatch
+from ..core.estop_latch import EstopLatch
 
 
 class EmergencyStopNode(Node):

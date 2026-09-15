@@ -9,7 +9,7 @@ from collections import defaultdict
 import numpy as np
 import yaml
 
-from skuba_navigation.geometry_utils import SIDE_OFFSETS
+from .geometry_utils import SIDE_OFFSETS
 
 ZONES = {
     "FRONT":       0.0,

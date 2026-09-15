@@ -11,8 +11,8 @@ from skuba_interfaces.srv import SaveLocationWithSide
 from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
-from skuba_navigation.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
-from skuba_navigation.zone_detection import (
+from ..core.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from ..core.zone_detection import (
     ZONES,
     HALF_WIDTH_DEG,
     accumulate_zone_hits,

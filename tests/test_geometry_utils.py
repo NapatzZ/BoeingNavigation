@@ -7,7 +7,7 @@ import math
 
 import pytest
 
-from skuba_navigation.geometry_utils import (
+from skuba_navigation.core.geometry_utils import (
     AUTO_SIDES,
     SIDE_OFFSETS,
     approach_pose_for_side,

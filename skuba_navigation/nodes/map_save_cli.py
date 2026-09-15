@@ -3,13 +3,14 @@
 Interactive helper to run alongside nav2_slam_bringup_launch.
 
 While SLAM is running, press Enter to save the current map. You will be
-prompted for a map name (default: skuba_map) and a save directory
-(default: /root/skuba_ws/src/skuba_navigation/maps). The map is
-written into its own subfolder <dir>/<name>/<name>.{pgm,yaml,data,posegraph}.
+prompted for a map name (default: skuba_map), an optional category folder
+(e.g. "30_skuba_home" — matches the maps/<category>/<name>.* layout; leave
+blank to save straight into the maps root) and the maps root directory
+(default: /root/skuba_ws/src/skuba_navigation/maps).
 
 usage: ros2 run skuba_navigation map_save_cli
 """
-from skuba_navigation.map_saver import MapSaver
+from ..core.map_saver import MapSaver
 
 DEFAULT_DIR = "/root/skuba_ws/src/skuba_navigation/maps"
 
@@ -26,13 +27,14 @@ def main():
             break
 
         map_name = input("Map name [skuba_map]: ").strip() or "skuba_map"
-        save_dir = input(f"Save directory [{DEFAULT_DIR}]: ").strip() or DEFAULT_DIR
+        category = input("Category folder, e.g. 30_skuba_home [none]: ").strip()
+        maps_root = input(f"Maps root [{DEFAULT_DIR}]: ").strip() or DEFAULT_DIR
 
-        map_saver = MapSaver(map_name, save_dir)
+        map_saver = MapSaver(map_name, category, maps_root)
         success = map_saver.save_maps()
 
         if success:
-            print(f"Map '{map_name}' saved to {save_dir}")
+            print(f"Map '{map_name}' saved to {map_saver.save_directory}")
         else:
             print("Map save failed, see messages above.")
 

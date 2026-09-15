@@ -10,7 +10,7 @@ import math
 import yaml
 from geometry_msgs.msg import PoseStamped
 
-from skuba_navigation.geometry_utils import normalize_angle, SIDE_OFFSETS
+from .geometry_utils import normalize_angle, SIDE_OFFSETS, yaw_to_quaternion
 
 # ── Rotation PD-controller tuning (see rotate_callback for rationale) ──
 ROTATE_KP = 3.0
@@ -113,8 +113,6 @@ def path_is_plannable(path) -> bool:
 
 def make_pose(x, y, yaw, stamp, frame_id='map') -> PoseStamped:
     """Build a PoseStamped in `frame_id` from a planar (x, y, yaw)."""
-    from skuba_navigation.geometry_utils import yaw_to_quaternion
-
     pose = PoseStamped()
     pose.header.stamp = stamp
     pose.header.frame_id = frame_id
