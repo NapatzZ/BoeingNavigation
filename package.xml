@@ -26,6 +26,8 @@
   <depend>skuba_interfaces</depend>
   <depend>kobuki_ros_interfaces</depend>
   <depend>twist_mux</depend>
+  <!-- params/nav2_params.yaml's local_costmap stvl_layer plugin -->
+  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
   <!-- hardware + complete-robot state publisher, included by both nav launches -->
   <exec_depend>skuba_bringup</exec_depend>
 

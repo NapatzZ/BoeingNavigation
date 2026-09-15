@@ -132,7 +132,7 @@ RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
 # Entrypoint: auto source + build mounted packages on every startup
 # build/ and install/ are on named volumes so only changed packages rebuild
 # ===============================
-COPY Dockerfile/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 WORKDIR /root/skuba_ws

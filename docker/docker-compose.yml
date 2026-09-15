@@ -53,11 +53,6 @@ services:
       - ROS_DOMAIN_ID=10
       - DISPLAY=:1
       - XAUTHORITY=
-      # Which stack to launch, and with which map:
-      #   default     cheesecake_nav.launch.py        + 30_skuba_home/skuba_home.yaml
-      #   restaurant  cheesecake_resturant.launch.py  + 20_restaurant/resturant_map_long.yaml
-      # Override per run: `NAV_MODE=restaurant docker compose up`
-      # - NAV_MODE=${NAV_MODE:-default}
     devices:
       - /dev/bus/usb
     volumes:
@@ -73,32 +68,14 @@ services:
       - ./entrypoint.sh:/entrypoint_override.sh:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     entrypoint: ["/bin/bash", "/entrypoint_override.sh"]
-    # The map is passed explicitly, not left to each launch file's default: the mode ->
-    # map pairing is the operator-visible contract (the console's NAV_MODE selector), so
-    # it lives in one place you can read, and a change to a launch default cannot
-    # silently swap the arena out from under a match.
-    #
-    # There is deliberately no idle/none mode: nav always brings up a real stack.
-    #
-    # Mapping (nav2_slam_bringup_launch.py) is a separate, manual, driven
-    # session (drive the robot, save when done) — not part of this NAV_MODE
-    # switch. Launch it by hand once inside the container:
+    # The container idles after entrypoint builds the workspace - it does not
+    # auto-launch a stack. Pick the task and map explicitly by hand once inside:
+    #   ros2 launch skuba_navigation cheesecake_nav.launch.py map:=<path>
+    #   ros2 launch skuba_navigation cheesecake_resturant.launch.py
+    # Mapping (nav2_slam_bringup_launch.py) is likewise a separate, manual,
+    # driven session (drive the robot, save when done):
     #   ros2 launch skuba_navigation nav2_slam_bringup_launch.py
     command: tail -f /dev/null
-    # command: >
-    #   bash -lc "source /opt/ros/humble/setup.bash &&
-    #   source /root/skuba_ws/install/setup.bash &&
-    #   SHARE=$$(ros2 pkg prefix skuba_navigation)/share/skuba_navigation &&
-    #   case $${NAV_MODE:-default} in
-    #   restaurant|resturant)
-    #     LF=cheesecake_resturant.launch.py;
-    #     MAP=$$SHARE/maps/20_restaurant/resturant_map_long.yaml ;;
-    #   *)
-    #     LF=cheesecake_nav.launch.py;
-    #     MAP=$$SHARE/maps/30_skuba_home/skuba_home.yaml ;;
-    #   esac &&
-    #   echo [nav] NAV_MODE=$${NAV_MODE:-default} launching $$LF map=$$MAP &&
-    #   ros2 launch skuba_navigation $$LF map:=$$MAP"
     deploy:
       resources:
         limits:

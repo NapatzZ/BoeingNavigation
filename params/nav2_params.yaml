@@ -4,11 +4,13 @@
 # ==============================================================================
 #
 # BASE: rcj_param.yaml (controller, costmap frequencies, robot geometry, Humble API)
-# ADDED: STVL (Spatio-Temporal Voxel Layer) replacing obstacle_layer in local costmap
+# ADDED: STVL (Spatio-Temporal Voxel Layer) alongside obstacle_layer in local
+#        costmap — LiDAR still goes through obstacle_layer, STVL only takes
+#        the depth camera (see local_costmap.stvl_layer below).
 # SLAM: slam_toolbox in localization mode (pre-built map required)
 #
-# INSTALL STVL first:
-#   sudo apt install ros-humble-spatio-temporal-voxel-layer
+# STVL's ROS package is declared in package.xml (exec_depend
+# spatio_temporal_voxel_layer), so `rosdep install` pulls it in.
 #
 # SLAM Toolbox localization requires a serialized map (.posegraph + .data) built
 # from a prior mapping session.  Set map_file_name below before launching.
@@ -322,7 +324,7 @@ local_costmap:
       height: 5
       resolution: 0.05
       robot_radius: 0.25
-      plugins: ["obstacle_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "stvl_layer", "inflation_layer"]
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
