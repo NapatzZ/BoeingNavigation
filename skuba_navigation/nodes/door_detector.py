@@ -9,8 +9,8 @@ lives in door_detection.py.
 Interfaces
 ----------
   Subscriber  : /scan                               (sensor_msgs/LaserScan)
-  Publisher   : /skuba/navigation/door_status        (std_msgs/Bool)
-  Service     : /skuba/navigation/door_detector/toggle  (std_srvs/SetBool)
+  Publisher   : /skuba/nav/door_status        (std_msgs/Bool)
+  Service     : /skuba/nav/door_detector/toggle  (std_srvs/SetBool)
                   data=true  → activate detection
                   data=false → deactivate detection
 
@@ -39,7 +39,7 @@ from std_srvs.srv import SetBool
 
 from ..core.door_detection import DoorDetector
 
-NAMESPACE = 'skuba/navigation'
+NAMESPACE = 'skuba/nav'
 
 
 class DoorDetectorNode(Node):

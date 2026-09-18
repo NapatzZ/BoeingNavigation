@@ -83,17 +83,20 @@ and call it. Only add code directly to a node file if it is genuinely ROS
 glue — a new subscription, service, parameter, or callback registration that
 itself does no real work beyond delegating to the plain module.
 
-## Naming convention — every srv/topic/action must be prefixed `/skuba/navigation/...`
+## Naming convention — every srv/topic/action must be prefixed `/skuba/nav/...`
 
 Every service, topic, or action this package advertises must live directly
-under `/skuba/navigation/`. Full form: `/skuba/navigation/<name>` — **no
+under `/skuba/nav/`. Full form: `/skuba/nav/<name>` — **no
 node-name segment.**
 
 Follow the pattern applied in `skuba-vision` / `skuba-speech` (see their
 `CLAUDE.md`): the node takes no namespace (`super().__init__("some_node")`)
-and passes the absolute `/skuba/navigation/<name>` straight to
+and passes the absolute `/skuba/nav/<name>` straight to
 `create_service` / `create_publisher`. Do not use `~/`-relative names or set
-a node namespace. The nodes ported from `skuba_cheesecake_navigation` have
+a node namespace. The package moved from `/skuba/navigation/` to the
+shorter `/skuba/nav/` together with the navigation_server action migration
+(feat/navigation-actions); publishers outside this repo that feed it (e.g. the
+vision follower's `person_pose`) must use the new prefix. The nodes ported from `skuba_cheesecake_navigation` have
 been renamed off `/skuba/cheesecake/nav/` onto this convention. The old
 prefix still has callers, but only in `skuba_docker_ws` (`skuba_cheesecake_state`,
 `skuba_cheesecake_vision`, `skuba_cheesecake_docker`'s `system_manifest.yaml`) —
@@ -103,5 +106,5 @@ this package is ever deployed or tested alongside a still-live
 `skuba_docker_ws`, the two will not talk to each other over these
 services — check with a maintainer before assuming otherwise. Keep `tests/policy.yaml` / `README.md` in sync, and if you
 ever run more than one node here, endpoint names must stay unique across the
-whole `/skuba/navigation/` space (qualify per-node lifecycle verbs by role,
+whole `/skuba/nav/` space (qualify per-node lifecycle verbs by role,
 not a bare `load_model`).

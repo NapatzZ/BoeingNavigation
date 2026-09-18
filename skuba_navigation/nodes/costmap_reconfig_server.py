@@ -25,7 +25,7 @@ from std_srvs.srv import Trigger
 
 from ..core import costmap_config as cc
 
-NAMESPACE = 'skuba/navigation'
+NAMESPACE = 'skuba/nav'
 
 # Controller server node name (adjust if your launch uses a different name)
 CONTROLLER_SERVER_NODE = '/controller_server'

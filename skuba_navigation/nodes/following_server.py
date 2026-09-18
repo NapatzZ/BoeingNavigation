@@ -7,7 +7,7 @@ dynamic following (https://docs.nav2.org/tutorials/docs/navigation2_dynamic_poin
 
 Pipeline
   follow.py publishes the person's PoseStamped (map frame) on
-    /skuba/navigation/person_pose
+    /skuba/nav/person_pose
   This server sends ONE NavigateToPose goal using the follow_point.xml
   behavior tree.  Inside that tree:
     • GoalUpdater reads the SAME person-pose topic and keeps the goal current,
@@ -50,8 +50,8 @@ POSE_TIMEOUT_S = 5.0    # s — person considered lost after this with no pose
 PACKAGE_NAME   = 'skuba_navigation'
 BT_REL_PATH    = 'behavior_trees/follow_point.xml'
 
-POSE_TOPIC     = '/skuba/navigation/person_pose'
-SERVICE_NAME   = '/skuba/navigation/toggle_following'
+POSE_TOPIC     = '/skuba/nav/person_pose'
+SERVICE_NAME   = '/skuba/nav/toggle_following'
 # ─────────────────────────────────────────────────────────────────────────── #
 
 

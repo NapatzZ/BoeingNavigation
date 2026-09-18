@@ -22,7 +22,7 @@ from ..core.zone_detection import (
     yaw_for_side,
 )
 
-NAMESPACE    = 'skuba/navigation'
+NAMESPACE    = 'skuba/nav'
 PACKAGE_NAME = 'skuba_navigation'
 ACCUMULATE_SCANS = 10
 

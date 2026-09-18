@@ -6,17 +6,16 @@ its goal and which core task runs it. The behaviour lives in
 core/navigation/tasks.py; ROS I/O lives in adapters/.
 
 Actions (all share one GoalArbiter - a new goal preempts the running one):
-  /skuba/navigation/go_to_pose       GoToPose        Nav2
-  /skuba/navigation/go_to_location   GoToLocation    Nav2, saved location
-  /skuba/navigation/go_to_frame      GoToFrame       Nav2, standoff next to a TF
-  /skuba/navigation/rotate           RotateInPlace   cmd_vel
-  /skuba/navigation/drive_straight   DriveStraight   cmd_vel
-  /skuba/navigation/nudge_to_frame   NudgeToFrame    cmd_vel
+  /skuba/nav/go_to_pose       GoToPose        Nav2
+  /skuba/nav/go_to_location   GoToLocation    Nav2, saved location
+  /skuba/nav/go_to_frame      GoToFrame       Nav2, standoff next to a TF
+  /skuba/nav/rotate           RotateInPlace   cmd_vel
+  /skuba/nav/drive_straight   DriveStraight   cmd_vel
+  /skuba/nav/nudge_to_frame   NudgeToFrame    cmd_vel
 Services:
-  /skuba/navigation/cancel_goal       std_srvs/Trigger     stop the active goal
-  /skuba/navigation/clear_costmaps    std_srvs/Trigger
-  /skuba/navigation/save_location     SaveLocationCommand  current pose -> locations file
-  /skuba/navigation/reload_locations  std_srvs/Trigger
+  /skuba/nav/clear_costmaps    std_srvs/Trigger
+  /skuba/nav/save_location     SaveLocationCommand  current pose -> locations file
+  /skuba/nav/reload_locations  std_srvs/Trigger
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,7 +54,7 @@ from ..core.navigation.location_store import Location, LocationStore, resolve_lo
 from ..core.navigation.motion import BaseMotion
 from ..core.navigation.types import ErrorCode, TaskFailure, TaskResult
 
-NAMESPACE = '/skuba/navigation'
+NAMESPACE = '/skuba/nav'
 PACKAGE_NAME = 'skuba_navigation'
 
 
@@ -99,8 +98,6 @@ class NavigationServer(Node):
 
         self._action_servers = [self._serve(spec) for spec in self._action_specs()]
         self._services = [
-            self.create_service(Trigger, f'{NAMESPACE}/cancel_goal', self._on_cancel_goal,
-                                callback_group=clients_group),
             self.create_service(Trigger, f'{NAMESPACE}/clear_costmaps',
                                 self._on_clear_costmaps, callback_group=clients_group),
             self.create_service(SaveLocationCommand, f'{NAMESPACE}/save_location',
@@ -253,12 +250,6 @@ class NavigationServer(Node):
         return publish
 
     # ── services ──────────────────────────────────────────────────────────
-
-    def _on_cancel_goal(self, _request, response):
-        response.success = True
-        response.message = ('Active goal canceled.' if self._arbiter.cancel_active()
-                            else 'No active goal.')
-        return response
 
     def _on_clear_costmaps(self, _request, response):
         response.success = self._nav2.clear_costmaps()

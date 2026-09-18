@@ -104,85 +104,40 @@ drives, with `emergency_stop` holding the lock topic.
 
 ## navigation_server
 
-Every way of moving the base is an **action** under `/skuba/navigation/`, so a
-caller (YASMIN today, py_trees_ros later) gets feedback, can cancel its own goal,
-and learns why a goal failed. Only instant operations remain services.
+Every way of moving the base is an **action** under `/skuba/nav/`, so a caller
+(YASMIN today, py_trees_ros next) gets feedback, can cancel its own goal, and
+learns why a goal failed. Only instant operations remain services.
+**Full reference: [docs/navigation_server.md](docs/navigation_server.md)**
+(goal / result / feedback fields, error codes, cancel, parameters, code
+layout, migration from `nav_to_pose`).
 
-| Action | Type | Backend | Replaces (old `nav_to_pose` service) |
+| Action | Type | Backend | Replaces (`nav_to_pose` service) |
 | --- | --- | --- | --- |
 | `go_to_pose` | `GoToPose` | Nav2 | `nav_to_position` |
 | `go_to_location` | `GoToLocation` | Nav2, saved location | `nav_to_name` |
-| `go_to_frame` | `GoToFrame` | Nav2 + heading correction, standoff next to a TF (`approach_side`) | `nav_to_tf` |
+| `go_to_frame` | `GoToFrame` | Nav2 + heading correction, standoff next to a TF | `nav_to_tf` |
 | `rotate` | `RotateInPlace` | PD controller on `cmd_vel_nav_manual` | `rotate` |
 | `drive_straight` | `DriveStraight` | closed loop on `cmd_vel_nav_manual` | `move_forward` |
 | `nudge_to_frame` | `NudgeToFrame` | turn / drive / face on `cmd_vel_nav_manual` | `nudge_to_tf` |
 
-| Service | Type | Notes |
+| Service | Type | Replaces |
 | --- | --- | --- |
-| `cancel_goal` | `std_srvs/Trigger` | stop whichever action goal is active (it ends ABORTED, `error.code = CANCELED`) |
-| `clear_costmaps` | `std_srvs/Trigger` | clear global + local costmaps (was `clear_costmap`) |
-| `save_location` | `SaveLocationCommand` | save the current pose under a name (was `save_pose`) |
-| `reload_locations` | `std_srvs/Trigger` | re-read the locations file (was `reload_yaml`; reads also auto-reload on change) |
+| `clear_costmaps` | `std_srvs/Trigger` | `clear_costmap` |
+| `save_location` | `SaveLocationCommand` | `save_pose` |
+| `reload_locations` | `std_srvs/Trigger` | `reload_yaml` |
 
-### Contract (what a behavior tree can rely on)
-
-* **Status is authoritative:** `SUCCEEDED` ⇔ `result.error.code == NONE`
-  (`skuba_interfaces/msg/NavigationError`). `py_trees_ros.actions.ActionClient`
-  maps that straight to SUCCESS / FAILURE; `error.code` says how to recover.
-* **One goal at a time, newest wins.** A new goal on *any* of the six actions
-  preempts the running one (`ABORTED`, `PREEMPTED`) and starts only once the
-  old one has stopped the base.
-* **Cancel is cheap and final.** Cancelling (e.g. a BT branch being interrupted)
-  cancels the Nav2 goal / stops the base within one control tick, ends
-  `CANCELED`, and is never retried.
-* **Bad goals are rejected at goal time** (unknown location, unknown
-  `approach_side`, NaN, zero quaternion), so the tree fails on the same tick.
-* **`timeout` is a total deadline** across Nav2 retries; `<= 0` uses the node default.
-* **Retries** happen only when Nav2 `ABORTED` (costmaps cleared first), up to
-  `navigation.max_retries`.
-* **Feedback** is capped at `navigation.feedback_rate` (5 Hz); phase changes are always sent.
-
-```python
-# py_trees_ros
-from py_trees_ros.actions import ActionClient
-from skuba_interfaces.action import GoToLocation
-
-go_kitchen = ActionClient(
-    name='GoKitchen', action_type=GoToLocation,
-    action_name='/skuba/navigation/go_to_location',
-    action_goal=GoToLocation.Goal(location='kitchen', timeout=60.0))
-```
+`cancel_goal` is gone: cancel through the action itself (the caller's goal
+handle, or `ros2 service call /skuba/nav/<action>/_action/cancel_goal
+action_msgs/srv/CancelGoal "{}"` to cancel all goals on that action).
+A new goal on any of the six actions preempts the running one.
 
 ```bash
-ros2 action send_goal --feedback /skuba/navigation/go_to_frame skuba_interfaces/action/GoToFrame \
-  "{frame: cup_0, stop_distance: 0.5, approach_side: FRONT, object_radius: 0.1}"
-ros2 service call /skuba/navigation/cancel_goal std_srvs/srv/Trigger
+ros2 action send_goal --feedback /skuba/nav/go_to_location skuba_interfaces/action/GoToLocation "{location: kitchen}"
 ```
 
-### Layout
+## Services of the other nodes
 
-```
-nodes/navigation_server_node.py   ROS glue: params, the action table, services
-adapters/                         rclpy implementations of the core ports
-  nav2_client.py                  NavigateToPose / ComputePathToPose / ClearEntireCostmap clients
-  tf_pose_source.py, cmd_vel_base.py, conversions.py, parameters.py
-core/navigation/                  no rclpy - unit-tested with fakes (tests/test_navigation_*.py)
-  tasks.py                        one function per action - start reading here
-  navigation_job.py               Nav2 pipeline: clear, plan-check, send, retry, cancel, deadline
-  motion.py                       closed-loop rotate / drive-straight
-  standoff.py, location_store.py, validation.py, cancellation.py, retry_policy.py, ...
-```
-
-Adding an action = one `.action` in skuba_interfaces, one function in
-`tasks.py`, one row in `_action_specs()`. Tunables live in
-`core/navigation/config.py`; each field is a ROS parameter
-(`params/navigation_server.yaml`, kept in sync by a test).
-
-Saved locations: the `locations_file` parameter, or by default
-`<ws>/src/skuba_navigation/share/saved_pose.yaml` (also `skuba-navigation/`),
-falling back to the installed share directory.
-
-From the other nodes:
+All under `/skuba/nav/`.
 
 | Service | Node |
 | --- | --- |
@@ -195,7 +150,7 @@ From the other nodes:
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in
 this package — it is served by `skuba_vision`'s `follower` node (different
-namespace prefix, unaffected by this package's rename).
+namespace prefix, unaffected by this package's renames).
 
 ## Docker
 
