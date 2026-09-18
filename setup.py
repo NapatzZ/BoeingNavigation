@@ -43,7 +43,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'nav_to_pose = skuba_navigation.nodes.nav_to_pose:main',
+            'navigation_server = skuba_navigation.nodes.navigation_server_node:main',
             'filter_lidar = skuba_navigation.nodes.filter_lidar:main',
             'map_save_cli = skuba_navigation.nodes.map_save_cli:main',
             'costmap_reconfig_server = skuba_navigation.nodes.costmap_reconfig_server:main',

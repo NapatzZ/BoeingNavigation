@@ -69,6 +69,14 @@ with `from ..core.<module> import ...`; modules within `core/` import each
 other with `from .<module> import ...`. New nodes and new logic modules go
 straight into `nodes/`/`core/` respectively.
 
+**Third layer, `adapters/`:** code that must talk to ROS (action/service
+clients, tf2, publishers, msg conversions) but is not itself a node lives in
+`skuba_navigation/adapters/`. Adapters implement the Protocols in
+`core/navigation/ports.py`, so `core/` stays rclpy-free and is tested with
+fakes (`tests/navigation_fakes.py`). `navigation_server` is the reference:
+`nodes/navigation_server_node.py` (glue + action table) →
+`core/navigation/tasks.py` (behaviour) → `adapters/` (ROS I/O).
+
 **Rule for new work:** when adding a capability, write it first as a
 function/class in a plain module (no `rclpy` import) and have the node import
 and call it. Only add code directly to a node file if it is genuinely ROS

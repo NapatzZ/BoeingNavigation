@@ -88,7 +88,7 @@ Executables registered in `setup.py`:
 
 | Executable | Purpose |
 | --- | --- |
-| `nav_to_pose` | Hosts most navigation services (see below) |
+| `navigation_server` | All base-motion actions + location/costmap services (see below) |
 | `save_location` | Writes the current pose into `share/saved_pose.yaml` |
 | `door_detector` | Reports whether the door ahead is open |
 | `costmap_reconfig_server` | Applies costmap presets from `params/costmap_dynamic_config.yaml` at runtime |
@@ -102,24 +102,85 @@ Executables registered in `setup.py`:
 keyboard, follow and nav sources are muxed into the single `/cmd_vel` the base
 drives, with `emergency_stop` holding the lock topic.
 
-## Services
+## navigation_server
 
-All under the `/skuba/navigation/` namespace unless noted.
+Every way of moving the base is an **action** under `/skuba/navigation/`, so a
+caller (YASMIN today, py_trees_ros later) gets feedback, can cancel its own goal,
+and learns why a goal failed. Only instant operations remain services.
 
-From `nav_to_pose`:
+| Action | Type | Backend | Replaces (old `nav_to_pose` service) |
+| --- | --- | --- | --- |
+| `go_to_pose` | `GoToPose` | Nav2 | `nav_to_position` |
+| `go_to_location` | `GoToLocation` | Nav2, saved location | `nav_to_name` |
+| `go_to_frame` | `GoToFrame` | Nav2 + heading correction, standoff next to a TF (`approach_side`) | `nav_to_tf` |
+| `rotate` | `RotateInPlace` | PD controller on `cmd_vel_nav_manual` | `rotate` |
+| `drive_straight` | `DriveStraight` | closed loop on `cmd_vel_nav_manual` | `move_forward` |
+| `nudge_to_frame` | `NudgeToFrame` | turn / drive / face on `cmd_vel_nav_manual` | `nudge_to_tf` |
 
 | Service | Type | Notes |
 | --- | --- | --- |
-| `nav_to_name` | `NavToName` | go to a saved named position |
-| `nav_to_position` | `NavToPose` | go to an explicit `PoseStamped` |
-| `nav_to_tf` | `Nav2ToTF` | go to a standoff pose near a TF frame, via Nav2's planner (supports `approach_side`) |
-| `nudge_to_tf` | `NavToTF` | move towards a TF frame via raw `cmd_vel`, no Nav2 planning |
-| `rotate` | `Rotate` | in-place PD-controlled rotation |
-| `move_forward` | `MoveWheel` | straight-line forward/backward move via raw `cmd_vel` |
-| `cancel_goal` | `std_srvs/Trigger` | cancel the active Nav2 goal |
-| `clear_costmap` | `std_srvs/Trigger` | clear local + global costmaps |
-| `save_pose` | `SaveLocationCommand` | save the current pose under a name |
-| `reload_yaml` | `std_srvs/Trigger` | reload saved positions from `share/saved_pose.yaml` |
+| `cancel_goal` | `std_srvs/Trigger` | stop whichever action goal is active (it ends ABORTED, `error.code = CANCELED`) |
+| `clear_costmaps` | `std_srvs/Trigger` | clear global + local costmaps (was `clear_costmap`) |
+| `save_location` | `SaveLocationCommand` | save the current pose under a name (was `save_pose`) |
+| `reload_locations` | `std_srvs/Trigger` | re-read the locations file (was `reload_yaml`; reads also auto-reload on change) |
+
+### Contract (what a behavior tree can rely on)
+
+* **Status is authoritative:** `SUCCEEDED` ⇔ `result.error.code == NONE`
+  (`skuba_interfaces/msg/NavigationError`). `py_trees_ros.actions.ActionClient`
+  maps that straight to SUCCESS / FAILURE; `error.code` says how to recover.
+* **One goal at a time, newest wins.** A new goal on *any* of the six actions
+  preempts the running one (`ABORTED`, `PREEMPTED`) and starts only once the
+  old one has stopped the base.
+* **Cancel is cheap and final.** Cancelling (e.g. a BT branch being interrupted)
+  cancels the Nav2 goal / stops the base within one control tick, ends
+  `CANCELED`, and is never retried.
+* **Bad goals are rejected at goal time** (unknown location, unknown
+  `approach_side`, NaN, zero quaternion), so the tree fails on the same tick.
+* **`timeout` is a total deadline** across Nav2 retries; `<= 0` uses the node default.
+* **Retries** happen only when Nav2 `ABORTED` (costmaps cleared first), up to
+  `navigation.max_retries`.
+* **Feedback** is capped at `navigation.feedback_rate` (5 Hz); phase changes are always sent.
+
+```python
+# py_trees_ros
+from py_trees_ros.actions import ActionClient
+from skuba_interfaces.action import GoToLocation
+
+go_kitchen = ActionClient(
+    name='GoKitchen', action_type=GoToLocation,
+    action_name='/skuba/navigation/go_to_location',
+    action_goal=GoToLocation.Goal(location='kitchen', timeout=60.0))
+```
+
+```bash
+ros2 action send_goal --feedback /skuba/navigation/go_to_frame skuba_interfaces/action/GoToFrame \
+  "{frame: cup_0, stop_distance: 0.5, approach_side: FRONT, object_radius: 0.1}"
+ros2 service call /skuba/navigation/cancel_goal std_srvs/srv/Trigger
+```
+
+### Layout
+
+```
+nodes/navigation_server_node.py   ROS glue: params, the action table, services
+adapters/                         rclpy implementations of the core ports
+  nav2_client.py                  NavigateToPose / ComputePathToPose / ClearEntireCostmap clients
+  tf_pose_source.py, cmd_vel_base.py, conversions.py, parameters.py
+core/navigation/                  no rclpy - unit-tested with fakes (tests/test_navigation_*.py)
+  tasks.py                        one function per action - start reading here
+  navigation_job.py               Nav2 pipeline: clear, plan-check, send, retry, cancel, deadline
+  motion.py                       closed-loop rotate / drive-straight
+  standoff.py, location_store.py, validation.py, cancellation.py, retry_policy.py, ...
+```
+
+Adding an action = one `.action` in skuba_interfaces, one function in
+`tasks.py`, one row in `_action_specs()`. Tunables live in
+`core/navigation/config.py`; each field is a ROS parameter
+(`params/navigation_server.yaml`, kept in sync by a test).
+
+Saved locations: the `locations_file` parameter, or by default
+`<ws>/src/skuba_navigation/share/saved_pose.yaml` (also `skuba-navigation/`),
+falling back to the installed share directory.
 
 From the other nodes:
 
