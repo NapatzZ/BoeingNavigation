@@ -42,7 +42,7 @@ def generate_launch_description():
         default_value=os.path.join(nav_share, 'params', 'nav2_params.yaml'),
         description='nav2 parameters file')
 
-    # 1. Hardware + complete-robot state publisher (kobuki, lidar, teleop, RSP)
+    # 1. Hardware + complete-robot state publisher (skuba_bringup: kobuki, lidar, teleop, RSP)
     # launch_robot_state_publisher:=false -- the manipulation stack's
     # move_group.launch.py already runs its own robot_state_publisher from the
     # same URDF (plus the live arm joints this one never gets). Leaving both
@@ -51,10 +51,13 @@ def generate_launch_description():
     # resolving targets to the wrong place (TEAM2-011, 2026-08-13).
     cheesecake_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(bringup_share, 'cheesecake_bringup.launch.py')
+            os.path.join(bringup_share, 'bringup.launch.py')
         ),
         launch_arguments={
             'launch_robot_state_publisher': 'false',
+            # skuba_bringup starts the RealSense by default; the old
+            # cheesecake_bringup never did, and nav does not need it.
+            'launch_camera': 'false',
         }.items(),
     )
 
