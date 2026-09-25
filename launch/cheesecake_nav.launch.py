@@ -13,6 +13,11 @@ The person-follower is NOT here: it lives in the skuba-follower container (subsy
 
     ros2 launch skuba_navigation cheesecake_nav.launch.py
     ros2 launch skuba_navigation cheesecake_nav.launch.py map:=/path/to/map.yaml
+
+In Gazebo (skuba_bringup sim:=true brings the simulated robot up instead of
+the drivers; everything runs on use_sim_time):
+
+    ros2 launch skuba_navigation cheesecake_nav.launch.py sim:=true map:=<map.yaml>
 """
 
 import os
@@ -20,9 +25,11 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -40,6 +47,21 @@ def generate_launch_description():
     params_arg = DeclareLaunchArgument(
         'params_file', default_value=os.path.join(nav_share, 'params', 'rcj_param.yaml'),
         description='nav2 parameters file')
+    sim = LaunchConfiguration('sim')
+    sim_args = [
+        DeclareLaunchArgument('sim', default_value='false',
+                              description='Gazebo robot (skuba_bringup sim:=true) instead '
+                                          'of the hardware; everything on use_sim_time.'),
+        DeclareLaunchArgument('sim_gui', default_value='true',
+                              description='With sim:=true: open the Gazebo window.'),
+        # Hardware: false, the manipulation stack runs robot_state_publisher
+        # (see below). Sim without manipulation: bringup has to run it.
+        DeclareLaunchArgument('launch_robot_state_publisher', default_value=sim,
+                              description="skuba_bringup's robot_state_publisher. Default: "
+                                          'off on the robot (manipulation runs it), on in sim.'),
+        DeclareLaunchArgument('use_rviz', default_value='true', description='Start RViz'),
+    ]
+    use_sim_time = {'use_sim_time': ParameterValue(sim, value_type=bool)}
 
     # 1. Hardware + complete-robot state publisher (skuba_bringup: kobuki, lidar, teleop, RSP)
     # launch_robot_state_publisher:=false -- the manipulation stack's
@@ -53,7 +75,9 @@ def generate_launch_description():
             os.path.join(bringup_share, 'bringup.launch.py')
         ),
         launch_arguments={
-            'launch_robot_state_publisher': 'false',
+            'sim': sim,
+            'sim_gui': LaunchConfiguration('sim_gui'),
+            'launch_robot_state_publisher': LaunchConfiguration('launch_robot_state_publisher'),
             # skuba_bringup starts the RealSense by default; the old
             # cheesecake_bringup never did, and nav does not need it.
             'launch_camera': 'false',
@@ -71,6 +95,11 @@ def generate_launch_description():
         launch_arguments={
             'map': LaunchConfiguration('map'),
             'params_file': LaunchConfiguration('params_file'),
+            'use_sim_time': sim,
+            # nav2_bringup_launch.py evaluates `slam` in a PythonExpression, so
+            # it must be Python's False -- and pass it explicitly, since launch
+            # configurations are global and a caller's own `slam` would leak in.
+            'slam': 'False',
         }.items(),
     )
 
@@ -78,19 +107,24 @@ def generate_launch_description():
     rviz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory(nav2_bringup_pkg), 'launch', 'rviz_launch.py')
-        )
+        ),
+        launch_arguments={'use_sim_time': sim}.items(),
+        condition=IfCondition(LaunchConfiguration('use_rviz')),
     )
 
     # 4. Service nodes
     nav_to_pose = Node(
-        package=nav_pkg, executable='nav_to_pose', name='nav_to_pose', output='screen')
+        package=nav_pkg, executable='nav_to_pose', name='nav_to_pose', output='screen',
+        parameters=[use_sim_time])
     save_location = Node(
-        package=nav_pkg, executable='save_location', name='save_location', output='screen')
+        package=nav_pkg, executable='save_location', name='save_location', output='screen',
+        parameters=[use_sim_time])
     door_detector = Node(
-        package=nav_pkg, executable='door_detector', name='door_detector', output='screen')
+        package=nav_pkg, executable='door_detector', name='door_detector', output='screen',
+        parameters=[use_sim_time])
     costmap_reconfig_server = Node(
         package=nav_pkg, executable='costmap_reconfig_server',
-        name='costmap_reconfig_server', output='screen')
+        name='costmap_reconfig_server', output='screen', parameters=[use_sim_time])
 
     # following_server was launched here. It is gone deliberately.
     #
@@ -105,6 +139,7 @@ def generate_launch_description():
     return LaunchDescription([
         map_arg,
         params_arg,
+        *sim_args,
         # hardware first
         cheesecake_bringup,
         # nav2 after the base/lidar/RSP are up
