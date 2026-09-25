@@ -15,12 +15,10 @@ from std_srvs.srv import Trigger
 from rclpy.callback_groups import ReentrantCallbackGroup
 from geometry_msgs.msg import Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
-from ament_index_python.packages import get_package_share_directory
 from skuba_interfaces.srv import NavToPose, NavToName, SaveLocationCommand, Rotate, MoveWheel, NavToTF, Nav2ToTF
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformListener, Buffer
-from pathlib import Path
 from ..core.geometry_utils import (
     AUTO_SIDES,
     SIDE_OFFSETS,
@@ -29,13 +27,11 @@ from ..core.geometry_utils import (
     quaternion_to_yaw,
 )
 from ..core import nav_to_pose_logic as logic
+from ..paths import data_path
 
 NAMESPACE = 'skuba/navigation'
 package_name = 'skuba_navigation'
-install_share_path = Path(get_package_share_directory(package_name))
-ws_root = install_share_path.parents[3]
-pose_path = ws_root / 'src' / package_name / 'share' / 'saved_pose.yaml'
-yaml_path = str(pose_path)
+yaml_path = str(data_path('share', 'saved_pose.yaml'))
 
 class NavigateToGoalServer(Node):
     """

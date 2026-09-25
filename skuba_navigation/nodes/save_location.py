@@ -6,12 +6,12 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.callback_groups import ReentrantCallbackGroup
 from sensor_msgs.msg import LaserScan
-from ament_index_python.packages import get_package_share_directory
 from skuba_interfaces.srv import SaveLocationWithSide
 from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
 from ..core.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from ..paths import data_path
 from ..core.zone_detection import (
     ZONES,
     HALF_WIDTH_DEG,
@@ -50,15 +50,7 @@ class SaveLocationServer(Node):
 
         # ── YAML path ─────────────────────────────────────────────────────────
         try:
-            install_share = Path(get_package_share_directory(PACKAGE_NAME))
-            ws_root = install_share.parents[3]
-            self.yaml_path = ws_root / 'src' / PACKAGE_NAME / 'share' / 'saved_pose.yaml'
-            if not self.yaml_path.parent.exists():
-                self.get_logger().warning(
-                    f"Source dir not found at {self.yaml_path.parent}. "
-                    "Falling back to install share."
-                )
-                self.yaml_path = install_share / 'saved_pose.yaml'
+            self.yaml_path = data_path('share', 'saved_pose.yaml')
         except Exception as e:
             self.get_logger().error(f"Failed to determine YAML path: {e}")
             self.yaml_path = Path('saved_pose.yaml')

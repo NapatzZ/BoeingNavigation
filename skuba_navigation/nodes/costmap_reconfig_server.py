@@ -16,14 +16,13 @@ import os
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
-from ament_index_python.packages import get_package_share_directory
 from skuba_interfaces.srv import DynamicReconfig
 from rcl_interfaces.srv import SetParameters, GetParameters
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
-from pathlib import Path
 from std_srvs.srv import Trigger
 
 from ..core import costmap_config as cc
+from ..paths import data_path
 
 NAMESPACE = 'skuba/navigation'
 
@@ -43,11 +42,7 @@ class CostmapReconfigServer(Node):
         self.callback_group = ReentrantCallbackGroup()
 
         # File paths
-        package_name = 'skuba_navigation'
-        install_share_path = Path(get_package_share_directory(package_name))
-        ws_root = install_share_path.parents[3]
-        config_path = ws_root / 'src' / package_name / 'params' / 'costmap_dynamic_config.yaml'
-        self.config_path = str(config_path)
+        self.config_path = str(data_path('params', 'costmap_dynamic_config.yaml'))
 
         # ── Costmap services ──────────────────────────────────────────────────
         self._reconfig_service = self.create_service(
