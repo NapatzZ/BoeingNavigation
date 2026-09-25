@@ -50,6 +50,7 @@ def generate_launch_description():
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
     publish_laser_tf = LaunchConfiguration('publish_laser_tf')
+    use_rviz = LaunchConfiguration('use_rviz')
 
     remappings = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
 
@@ -132,6 +133,10 @@ def generate_launch_description():
         description='Publish a static base_link->laser (only when no robot_state_publisher runs)'
     )
 
+    declare_use_rviz_cmd = DeclareLaunchArgument(
+        'use_rviz', default_value='true', description='Start RViz'
+    )
+
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info', description='log level'
     )
@@ -173,11 +178,13 @@ def generate_launch_description():
                     'container_name': 'nav2_container',
                 }.items(),
             ),
-            # RViz launch
+            # RViz launch. use_rviz:=false for headless runs: rviz_launch.py
+            # shuts the whole launch down when RViz exits (e.g. no display).
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(launch_dir, 'rviz_launch.py')
                 ),
+                condition=IfCondition(use_rviz),
             ),
             # Person cluster filter: removes person-sized LiDAR clusters from
             # /scan before SLAM Toolbox so walking people are not baked
@@ -245,6 +252,7 @@ def generate_launch_description():
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
     ld.add_action(declare_publish_laser_tf_cmd)
+    ld.add_action(declare_use_rviz_cmd)
     ld.add_action(bringup_cmd_group)
 
     return ld
