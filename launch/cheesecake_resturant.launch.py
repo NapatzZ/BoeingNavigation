@@ -58,6 +58,9 @@ def generate_launch_description():
             # skuba_bringup starts the RealSense by default; the old
             # cheesecake_bringup never did, and nav does not need it.
             'launch_camera': 'false',
+            # The xbox pad goes through twist_mux (joystick lane, priority 100)
+            # instead of straight onto /cmd_vel, so the e_stop lock stops it too.
+            'teleop_cmd_vel_topic': 'cmd_vel_joy',
         }.items(),
     )
 
