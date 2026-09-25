@@ -16,7 +16,6 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from geometry_msgs.msg import Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from skuba_interfaces.srv import NavToPose, NavToName, SaveLocationCommand, Rotate, MoveWheel, NavToTF, Nav2ToTF
-from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformListener, Buffer
 from ..core.geometry_utils import (
@@ -157,7 +156,10 @@ class NavigateToGoalServer(Node):
         
         self.get_logger().info("Waiting for services to be ready...")
         for _ in range(5):
-            self.get_clock().sleep_for(Duration(seconds=0.2))
+            # Wall-clock sleep: with use_sim_time the node clock only advances
+            # when /clock is processed, and nothing spins this node yet, so
+            # get_clock().sleep_for() would block forever in simulation.
+            time.sleep(0.2)
             rclpy.spin_once(self, timeout_sec=0.1)
         self.get_logger().info("Services initialized and should be available now")
     
