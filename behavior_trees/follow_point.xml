@@ -1,0 +1,39 @@
+<!--
+  skuba_navigation — follow_point.xml
+  =====================================================================
+  Dynamic person-following behavior tree (Nav2, Humble).
+
+  How it works
+    • GoalUpdater subscribes to the person-pose topic (configured by the
+      `goal_updater_topic` parameter under bt_navigator in nav2_params.yaml)
+      and replaces the action goal with the latest person pose.
+    • ComputePathToPose replans a path to the updated goal.
+    • TruncatePath trims `distance` metres off the END of the path, so the
+      robot stops that far BEFORE the person (the follow standoff) and never
+      tries to drive into the (probably occupied) person cell.
+    • KeepRunningUntilFailure keeps FollowPath running CONTINUOUSLY, so the
+      controller never restarts — this is what makes motion smooth instead
+      of the stutter you get from re-sending NavigateToPose goals.
+
+  Tuning
+    • RateController hz : how often we replan toward the newest person pose.
+                         2 Hz is snappier than the Nav2 default of 1 Hz.
+    • TruncatePath distance : follow standoff in metres (was DESIRED_DISTANCE).
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="NavigateWithReplanning">
+      <RateController hz="2.0">
+        <Sequence>
+          <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
+            <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
+          </GoalUpdater>
+          <TruncatePath distance="0.5" input_path="{path}" output_path="{truncated_path}"/>
+        </Sequence>
+      </RateController>
+      <KeepRunningUntilFailure>
+        <FollowPath path="{truncated_path}" controller_id="FollowPath"/>
+      </KeepRunningUntilFailure>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>

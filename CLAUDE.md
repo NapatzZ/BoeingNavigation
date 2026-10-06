@@ -59,13 +59,15 @@ callback wiring. Actual logic — anything you'd want to unit-test without
 spinning up `rclpy` or a running node graph — belongs in a plain module with
 no `rclpy` import, imported by the node.
 
-**Current state:** `skuba_navigation/` is still an empty stub
-(`__init__.py` only). Apply this split from the first real node you add —
-create the logic as a plain module under `skuba_navigation/` before writing
-the node class, don't retrofit the split later. See `skuba-vision` (e.g.
-`detect_node.py` vs. `face_pipeline.py`/`image_buffer.py`) or `skuba-speech`
-(`speak_node.py` vs. `_audio_sink.py`) for the pattern already in use
-elsewhere in this workspace.
+**Current state:** the nodes ported from `skuba_cheesecake_navigation` now
+follow this split: `skuba_navigation/nodes/` holds the `rclpy.node.Node`
+subclasses (glue only) and `skuba_navigation/core/` holds their logic (no
+`rclpy` import), matching `skuba-vision` (`nodes/detect_node.py` vs.
+`core/face_pipeline.py`/`core/image_buffer.py`) and `skuba-speech`
+(`nodes/speak_node.py` vs. `core/audio_sink.py`). Nodes import their logic
+with `from ..core.<module> import ...`; modules within `core/` import each
+other with `from .<module> import ...`. New nodes and new logic modules go
+straight into `nodes/`/`core/` respectively.
 
 **Rule for new work:** when adding a capability, write it first as a
 function/class in a plain module (no `rclpy` import) and have the node import
@@ -83,8 +85,15 @@ Follow the pattern applied in `skuba-vision` / `skuba-speech` (see their
 `CLAUDE.md`): the node takes no namespace (`super().__init__("some_node")`)
 and passes the absolute `/skuba/navigation/<name>` straight to
 `create_service` / `create_publisher`. Do not use `~/`-relative names or set
-a node namespace. This repo has no nodes yet; apply this from the first
-endpoint you add, keep `tests/policy.yaml` / `README.md` in sync, and if you
+a node namespace. The nodes ported from `skuba_cheesecake_navigation` have
+been renamed off `/skuba/cheesecake/nav/` onto this convention. The old
+prefix still has callers, but only in `skuba_docker_ws` (`skuba_cheesecake_state`,
+`skuba_cheesecake_vision`, `skuba_cheesecake_docker`'s `system_manifest.yaml`) —
+the legacy stack this migration replaces and that is being retired once the
+migration completes, so those calls were deliberately left uncoordinated. If
+this package is ever deployed or tested alongside a still-live
+`skuba_docker_ws`, the two will not talk to each other over these
+services — check with a maintainer before assuming otherwise. Keep `tests/policy.yaml` / `README.md` in sync, and if you
 ever run more than one node here, endpoint names must stay unique across the
 whole `/skuba/navigation/` space (qualify per-node lifecycle verbs by role,
 not a bare `load_model`).

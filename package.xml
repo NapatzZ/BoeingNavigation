@@ -11,6 +11,28 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
+  <depend>builtin_interfaces</depend>
+  <depend>geometry_msgs</depend>
+  <depend>navigation2</depend>
+  <depend>nav2_bringup</depend>
+  <depend>nav2_simple_commander</depend>
+  <depend>slam_toolbox</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf_transformations</depend>
+  <depend>std_srvs</depend>
+  <depend>skuba_interfaces</depend>
+  <depend>kobuki_ros_interfaces</depend>
+  <depend>twist_mux</depend>
+  <!-- params/nav2_params.yaml's local_costmap stvl_layer plugin -->
+  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
+  <!-- hardware + complete-robot state publisher, included by both nav launches -->
+  <exec_depend>skuba_bringup</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

@@ -1,0 +1,90 @@
+<!--
+  skuba_navigation — navigate_to_pose_recovery.xml
+  =====================================================================
+  Copy of the Nav2 Humble default
+  (nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml)
+  with the recovery timings and the recovery ACTION SEQUENCE made explicit
+  so they can be tuned in one place.
+
+  WHO TRIGGERS RECOVERY
+    Nav2 has no "stuck counter". Recovery runs when a child action FAILS:
+      • ComputePathToPose fails  -> planner found no path
+      • FollowPath fails         -> controller aborted, which happens when
+          - the progress checker times out
+            (controller_server/progress_checker: required_movement_radius 0.5 m
+             within movement_time_allowance 10.0 s)   => this is "how long stuck"
+          - or no valid command for longer than controller_server/failure_tolerance
+            (currently 0.3 s)
+
+  HOW MANY TIMES
+    RecoveryNode `number_of_retries` below. The OUTER one (6) is the number of
+    full recovery cycles before NavigateToPose aborts to the caller.
+    Inner ones (1) = one costmap clear retry before escalating outward.
+
+  ORDER OF RECOVERY ACTIONS
+    RoundRobin: each time recovery is entered, the NEXT child in the list runs
+    (not all of them). 6 retries with 4 children = the list is walked 1.5x.
+    Reorder / add / delete children here to change the escalation strategy.
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <!-- number_of_retries = number of recovery cycles before giving up -->
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <!-- hz = global replanning rate -->
+        <RateController hz="1.0">
+          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Context"
+                                service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+          <ClearEntireCostmap name="ClearLocalCostmap-Context"
+                              service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+
+      </PipelineSequence>
+
+      <!-- Recovery subtree: aborted immediately if a new goal arrives -->
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated name="GoalUpdated"/>
+
+        <RoundRobin name="RecoveryActions">
+
+          <!-- 1. cheapest: forget stale obstacles -->
+          <Sequence name="ClearingActions">
+            <ClearEntireCostmap name="ClearLocalCostmap-Subtree"
+                                service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Subtree"
+                                service_name="global_costmap/clear_entirely_global_costmap"/>
+          </Sequence>
+
+          <!-- 2. rotate in place to re-observe surroundings.
+               spin_dist    [rad]  +CCW / -CW
+               time_allowance [s]  behavior aborts if not finished in time -->
+          <Spin name="SpinRecovery" spin_dist="1.57" time_allowance="10.0"/>
+
+          <!-- 3. let a moving obstacle (a person) clear out.
+               wait_duration is in SECONDS (integer). -->
+          <Wait name="WaitRecovery" wait_duration="5"/>
+
+          <!-- 4. most expensive: reverse out of the trap.
+               backup_dist  [m]  magnitude, sign handled internally
+               backup_speed [m/s] positive
+               NOTE: BackUp is blind for a differential base unless you have a
+               rear sensor — keep the distance short. -->
+          <BackUp name="BackUpRecovery" backup_dist="0.30" backup_speed="0.05"
+                  time_allowance="10.0"/>
+
+        </RoundRobin>
+      </ReactiveFallback>
+
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

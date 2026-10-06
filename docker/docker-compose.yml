@@ -1,0 +1,87 @@
+# Equivalent of:
+#   docker pull napatku/skuba-navigation:latest
+#   docker run -it --name skuba_nav --network host --privileged \
+#     -v /dev:/dev \
+#     -v .../skuba_navigation:/root/skuba_ws/src/skuba_navigation \
+#     -v .../skuba_bringup:/root/skuba_ws/src/skuba_bringup \
+#     -v .../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces \
+#     -v .../skuba_description:/root/skuba_ws/src/skuba_description \
+#     napatku/skuba-navigation:latest
+#
+# Usage (run from this folder, which sits in skuba_ws/src next to the other pkgs):
+#   docker compose up
+#
+# First startup: entrypoint builds all mounted packages automatically (takes a few minutes).
+# Subsequent startups: only changed packages rebuild — fast because build/ and install/
+# are stored in named volumes (nav_build / nav_install) that persist across restarts.
+# To force a clean rebuild: docker compose down -v
+#
+# The host source folders are live-mounted with paths RELATIVE to this file, so
+# the workspace can live anywhere — no hard-coded /home/skuba path needed.
+services:
+  skuba_nav:
+    image: napatku/skuba-navigation:latest
+    container_name: skuba-nav
+    healthcheck:
+      # Container readiness, NOT task readiness: "the workspace is built and the
+      # ROS layer in this container answers", i.e. it can accept a launch.
+      # Whether the RIGHT nodes are actually up is the ROS layer's job, driven by
+      # system_manifest.yaml. The readiness gate checks the two independently,
+      # because neither catches the other's failure: a container can pass this
+      # check with a crashed node inside it, and a node can linger on the graph
+      # after its container is gone.
+      #
+      # `ros2 node list` exits 0 on an empty graph -- deliberate. This is asking
+      # whether the CLI and rmw work here, not what is running.
+      #
+      # Must run under bash: CMD-SHELL uses /bin/sh (dash), which has no `source`.
+      test:
+        - CMD
+        - bash
+        - -lc
+        - test -f /root/skuba_ws/install/setup.bash && source /opt/ros/humble/setup.bash && timeout 5 ros2 node list > /dev/null 2>&1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      # First boot colcon-builds every mounted package, which takes minutes. Until
+      # start_period elapses a failing check reports `starting`, not `unhealthy`,
+      # so a slow build shows up as "still starting" instead of a phantom fault.
+      start_period: 600s
+    privileged: true
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=10
+      - DISPLAY=:1
+      - XAUTHORITY=
+    devices:
+      - /dev/bus/usb
+    volumes:
+      - /dev:/dev
+      - ../.:/root/skuba_ws/src/skuba_navigation
+      - ../../skuba_bringup:/root/skuba_ws/src/skuba_bringup
+      - ../../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces
+      - ../../skuba_docker/config/system_manifest.yaml:/root/system_manifest.yaml:ro
+      - ../../skuba_description:/root/skuba_ws/src/skuba_description
+      - ../../sllidar_ros2:/root/skuba_ws/src/sllidar_ros2
+      - nav_build:/root/skuba_ws/build
+      - nav_install:/root/skuba_ws/install
+      - ./entrypoint.sh:/entrypoint_override.sh:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    entrypoint: ["/bin/bash", "/entrypoint_override.sh"]
+    # The container idles after entrypoint builds the workspace - it does not
+    # auto-launch a stack. Pick the task and map explicitly by hand once inside:
+    #   ros2 launch skuba_navigation cheesecake_nav.launch.py map:=<path>
+    #   ros2 launch skuba_navigation cheesecake_resturant.launch.py
+    # Mapping (nav2_slam_bringup_launch.py) is likewise a separate, manual,
+    # driven session (drive the robot, save when done):
+    #   ros2 launch skuba_navigation nav2_slam_bringup_launch.py
+    command: tail -f /dev/null
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+    stdin_open: true   # docker run -i
+    tty: true          # docker run -t
+volumes:
+  nav_build:
+  nav_install:
