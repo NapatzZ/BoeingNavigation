@@ -5,6 +5,7 @@ These were previously copy-pasted in nav_to_pose.py and save_location.py.
 Everything here is pure (no ROS state), so it is trivially unit-testable and
 safe to reuse.
 """
+
 import math
 
 
@@ -42,19 +43,19 @@ def yaw_to_quaternion(yaw: float):
 # they are map-frame directions (FRONT = map +X); pass the target's own yaw and
 # they become object-relative.
 SIDE_OFFSETS = {
-    'FRONT': 0.0,
-    'FRONT_LEFT': math.pi / 4.0,
-    'LEFT': math.pi / 2.0,
-    'BACK_LEFT': 3.0 * math.pi / 4.0,
-    'BACK': math.pi,
-    'BACK_RIGHT': -3.0 * math.pi / 4.0,
-    'RIGHT': -math.pi / 2.0,
-    'FRONT_RIGHT': -math.pi / 4.0,
+    "FRONT": 0.0,
+    "FRONT_LEFT": math.pi / 4.0,
+    "LEFT": math.pi / 2.0,
+    "BACK_LEFT": 3.0 * math.pi / 4.0,
+    "BACK": math.pi,
+    "BACK_RIGHT": -3.0 * math.pi / 4.0,
+    "RIGHT": -math.pi / 2.0,
+    "FRONT_RIGHT": -math.pi / 4.0,
 }
 
 # Request values that mean "no side requested; use the legacy robot->target
 # approach". Compared case-insensitively after stripping.
-AUTO_SIDES = ('', 'AUTO', 'NONE')
+AUTO_SIDES = ("", "AUTO", "NONE")
 
 
 def approach_pose_for_side(target_x, target_y, reference_yaw, side, standoff):

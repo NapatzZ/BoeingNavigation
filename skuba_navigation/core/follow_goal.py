@@ -1,10 +1,11 @@
 """Pure decision logic for following_server.py. No rclpy import."""
+
 from action_msgs.msg import GoalStatus
 
 GOAL_STATUS_NAMES = {
-    GoalStatus.STATUS_SUCCEEDED: 'SUCCEEDED',
-    GoalStatus.STATUS_ABORTED:   'ABORTED',
-    GoalStatus.STATUS_CANCELED:  'CANCELED',
+    GoalStatus.STATUS_SUCCEEDED: "SUCCEEDED",
+    GoalStatus.STATUS_ABORTED: "ABORTED",
+    GoalStatus.STATUS_CANCELED: "CANCELED",
 }
 
 

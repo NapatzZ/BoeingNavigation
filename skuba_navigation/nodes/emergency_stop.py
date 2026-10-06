@@ -3,7 +3,12 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
+from rclpy.qos import (
+    QoSProfile,
+    QoSReliabilityPolicy,
+    QoSHistoryPolicy,
+    QoSDurabilityPolicy,
+)
 from std_msgs.msg import Bool
 from kobuki_ros_interfaces.msg import DigitalInputEvent
 from ..core.estop_latch import EstopLatch
@@ -29,10 +34,10 @@ class EmergencyStopNode(Node):
     """
 
     def __init__(self):
-        super().__init__('emergency_stop')
+        super().__init__("emergency_stop")
 
-        self.declare_parameter('lock_topic', 'e_stop')
-        lock_topic: str = self.get_parameter('lock_topic').value
+        self.declare_parameter("lock_topic", "e_stop")
+        lock_topic: str = self.get_parameter("lock_topic").value
 
         self._latch = EstopLatch()
         self._shutdown = False
@@ -59,7 +64,7 @@ class EmergencyStopNode(Node):
 
         self._sub = self.create_subscription(
             DigitalInputEvent,
-            '/events/digital_input',
+            "/events/digital_input",
             self._digital_input_cb,
             input_qos,
         )
@@ -69,7 +74,7 @@ class EmergencyStopNode(Node):
         self._pub_thread.start()
 
         self.get_logger().info(
-            f'[EmergencyStop] Ready. Listening on /events/digital_input pin[0]. '
+            f"[EmergencyStop] Ready. Listening on /events/digital_input pin[0]. "
             f'Will latch permanently and raise the twist_mux lock "{lock_topic}".'
         )
 
@@ -77,7 +82,9 @@ class EmergencyStopNode(Node):
     def _digital_input_cb(self, msg: DigitalInputEvent) -> None:
         if msg.values[0] and self._latch.trigger():
             self._lock_pub.publish(Bool(data=True))  # raise lock immediately
-            self.get_logger().warn('[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised.')
+            self.get_logger().warn(
+                "[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised."
+            )
 
     # ------------------------------------------------------------------
     def _publish_loop(self) -> None:
@@ -111,5 +118,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

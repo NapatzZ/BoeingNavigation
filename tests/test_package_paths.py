@@ -1,4 +1,5 @@
 """Unit tests for core.package_paths — locating the source checkout without a hard-coded path."""
+
 from skuba_navigation.core.package_paths import ENV_VAR, find_package_source_dir
 
 PKG_XML = "<package><name>skuba_navigation</name></package>\n"
@@ -16,20 +17,27 @@ def _make_ws(tmp_path, source_rel="src/skuba-newgen/skuba-navigation"):
 def test_finds_nested_renamed_checkout_by_package_xml_name(tmp_path):
     source, share = _make_ws(tmp_path)
     (share / "package.xml").write_text(PKG_XML)  # plain copy, not a symlink
-    assert find_package_source_dir(share, "skuba_navigation", env={}) == source.resolve()
+    assert (
+        find_package_source_dir(share, "skuba_navigation", env={}) == source.resolve()
+    )
 
 
 def test_follows_symlink_install_package_xml(tmp_path):
     source, share = _make_ws(tmp_path, "elsewhere/skuba-navigation")
     (share / "package.xml").symlink_to(source / "package.xml")
-    assert find_package_source_dir(share, "skuba_navigation", env={}) == source.resolve()
+    assert (
+        find_package_source_dir(share, "skuba_navigation", env={}) == source.resolve()
+    )
 
 
 def test_env_var_overrides_discovery(tmp_path):
     _source, share = _make_ws(tmp_path)
     override = tmp_path / "custom"
     override.mkdir()
-    assert find_package_source_dir(share, "skuba_navigation", env={ENV_VAR: str(override)}) == override.resolve()
+    assert (
+        find_package_source_dir(share, "skuba_navigation", env={ENV_VAR: str(override)})
+        == override.resolve()
+    )
 
 
 def test_skips_colcon_ignored_and_build_dirs(tmp_path):

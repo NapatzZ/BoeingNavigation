@@ -11,6 +11,7 @@ core.package_paths; falls back to ./maps if the source checkout is not found).
 
 usage: ros2 run skuba_navigation map_save_cli
 """
+
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -22,7 +23,9 @@ PACKAGE_NAME = "skuba_navigation"
 
 
 def default_maps_dir():
-    source_dir = find_package_source_dir(get_package_share_directory(PACKAGE_NAME), PACKAGE_NAME)
+    source_dir = find_package_source_dir(
+        get_package_share_directory(PACKAGE_NAME), PACKAGE_NAME
+    )
     if source_dir is not None:
         return str(source_dir / "maps")
     return os.path.join(os.getcwd(), "maps")

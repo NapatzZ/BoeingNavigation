@@ -23,17 +23,17 @@ from ..core.zone_detection import (
     yaw_for_side,
 )
 
-NAMESPACE    = 'skuba/navigation'
-PACKAGE_NAME = 'skuba_navigation'
+NAMESPACE = "skuba/navigation"
+PACKAGE_NAME = "skuba_navigation"
 ACCUMULATE_SCANS = 10
 
 
 class SaveLocationServer(Node):
     def __init__(self):
-        super().__init__('save_location_server')
+        super().__init__("save_location_server")
         self.callback_group = ReentrantCallbackGroup()
 
-        self.tf_buffer   = Buffer()
+        self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.static_broadcaster = StaticTransformBroadcaster(self)
 
@@ -43,10 +43,10 @@ class SaveLocationServer(Node):
 
         self.scan_sub = self.create_subscription(
             LaserScan,
-            '/scan',
+            "/scan",
             self.scan_callback,
             qos_profile_sensor_data,
-            callback_group=self.callback_group
+            callback_group=self.callback_group,
         )
 
         # ── YAML path ─────────────────────────────────────────────────────────
@@ -54,23 +54,23 @@ class SaveLocationServer(Node):
             install_share = Path(get_package_share_directory(PACKAGE_NAME))
             source_dir = find_package_source_dir(install_share, PACKAGE_NAME)
             if source_dir is not None:
-                self.yaml_path = source_dir / 'share' / 'saved_pose.yaml'
+                self.yaml_path = source_dir / "share" / "saved_pose.yaml"
             else:
                 self.get_logger().warning(
                     "Source checkout not found. Falling back to install share."
                 )
-                self.yaml_path = install_share / 'saved_pose.yaml'
+                self.yaml_path = install_share / "saved_pose.yaml"
         except Exception as e:
             self.get_logger().error(f"Failed to determine YAML path: {e}")
-            self.yaml_path = Path('saved_pose.yaml')
+            self.yaml_path = Path("saved_pose.yaml")
 
         self.get_logger().info(f"Using YAML path: {self.yaml_path}")
 
         self.srv = self.create_service(
             SaveLocationWithSide,
-            f'/{NAMESPACE}/save_location_with_side',
+            f"/{NAMESPACE}/save_location_with_side",
             self.save_location_callback,
-            callback_group=self.callback_group
+            callback_group=self.callback_group,
         )
 
         self.get_logger().info(
@@ -116,10 +116,10 @@ class SaveLocationServer(Node):
 
         try:
             tf = self.tf_buffer.lookup_transform(
-                'map',
-                'base_link',
+                "map",
+                "base_link",
                 rclpy.time.Time(),
-                rclpy.duration.Duration(seconds=1.0)
+                rclpy.duration.Duration(seconds=1.0),
             )
             current_yaw = quaternion_to_yaw(tf.transform.rotation)
 
@@ -133,15 +133,19 @@ class SaveLocationServer(Node):
                 self.yaml_path,
                 location_name,
                 detected_side,
-                (tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
+                (
+                    tf.transform.translation.x,
+                    tf.transform.translation.y,
+                    tf.transform.translation.z,
+                ),
                 (0.0, 0.0, q_final_z, q_final_w),
             )
 
             # ── Broadcast BAR static TF (identical to what was saved) ─────
             t = TransformStamped()
-            t.header.stamp    = self.get_clock().now().to_msg()
-            t.header.frame_id = 'map'
-            t.child_frame_id  = 'BAR'
+            t.header.stamp = self.get_clock().now().to_msg()
+            t.header.frame_id = "map"
+            t.child_frame_id = "BAR"
             t.transform.translation.x = tf.transform.translation.x
             t.transform.translation.y = tf.transform.translation.y
             t.transform.translation.z = tf.transform.translation.z
@@ -152,7 +156,7 @@ class SaveLocationServer(Node):
             self.static_broadcaster.sendTransform(t)
 
             response.success = True
-            response.side    = detected_side
+            response.side = detected_side
             self.get_logger().info(
                 f"Saved '{location_name}'  "
                 f"side={detected_side}  "
@@ -166,7 +170,7 @@ class SaveLocationServer(Node):
         except Exception as e:
             self.get_logger().error(f"Callback failure: {e}")
             response.success = False
-            response.side    = "ERROR"
+            response.side = "ERROR"
 
         return response
 
@@ -174,6 +178,7 @@ class SaveLocationServer(Node):
 # =============================================================================
 # Entry point
 # =============================================================================
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -187,5 +192,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

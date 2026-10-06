@@ -4,6 +4,7 @@ filter_scan() only reads .angle_min/.angle_increment/.ranges and deepcopies
 whatever it is given, so a plain duck-typed scan (no sensor_msgs import
 needed) is enough to exercise it.
 """
+
 import math
 
 import pytest
