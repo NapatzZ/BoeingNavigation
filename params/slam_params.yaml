@@ -13,10 +13,8 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_link
-    # Person-filtered scan (person_cluster_filter strips walking-person-sized
-    # clusters before they can get baked into the map as permanent obstacles);
-    # original file used /scan_filtered, which is now STVL's input instead.
-    scan_topic: /scan_slam
+    # Raw scan; /scan_filtered is STVL's input instead.
+    scan_topic: /scan
     use_map_saver: true
     mode: mapping
 

@@ -49,7 +49,6 @@ setup(
             'costmap_reconfig_server = skuba_navigation.nodes.costmap_reconfig_server:main',
             'door_detector = skuba_navigation.nodes.door_detector:main',
             'following_server = skuba_navigation.nodes.following_server:main',
-            'person_cluster_filter = skuba_navigation.nodes.person_cluster_filter:main',
             'save_location = skuba_navigation.nodes.save_location:main',
             'emergency_stop = skuba_navigation.nodes.emergency_stop:main',
         ],
