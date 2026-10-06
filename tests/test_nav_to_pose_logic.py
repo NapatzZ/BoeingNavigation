@@ -1,4 +1,5 @@
-"""Unit tests for nav_to_pose.py's pure math/YAML logic.
+"""
+Unit tests for nav_to_pose.py's pure math/YAML logic.
 
 The retry/TF/cmd_vel control loops themselves stay in the node (they need a
 live rclpy graph); this only covers what was extracted as pure functions.

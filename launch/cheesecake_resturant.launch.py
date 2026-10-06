@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Full Cheesecake navigation stack for the restaurant map, with real AMCL.
+"""
+Full Cheesecake navigation stack for the restaurant map, with real AMCL.
 
 nav2_bringup_launch.py is launched with its default use_localization:=True, so
 its stock localization_launch.py runs AMCL against the loaded map — robot pose

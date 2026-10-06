@@ -1,4 +1,5 @@
-"""Unit tests for the pure LiDAR angle/distance filter.
+"""
+Unit tests for the pure LiDAR angle/distance filter.
 
 filter_scan() only reads .angle_min/.angle_increment/.ranges and deepcopies
 whatever it is given, so a plain duck-typed scan (no sensor_msgs import

@@ -1,4 +1,5 @@
-"""Unit tests for the e-stop latch state machine.
+"""
+Unit tests for the e-stop latch state machine.
 
 Pure state, no rclpy - so it runs without a robot or a running graph.
 """

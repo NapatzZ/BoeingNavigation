@@ -6,7 +6,8 @@ import numpy as np
 
 
 class DoorDetector:
-    """Forward-cone beam classification + debounce state machine.
+    """
+    Forward-cone beam classification + debounce state machine.
 
     Door CLOSED : most front beams return distance < threshold
                   (the door surface reflects the laser back)
@@ -43,7 +44,8 @@ class DoorDetector:
             self._confirm_streak = 0
 
     def process_scan(self, ranges, angle_min, angle_increment, range_min):
-        """Feed one scan through the detector.
+        """
+        Feed one scan through the detector.
 
         Returns (status, detail):
           ('no_beams', None)               - forward cone empty

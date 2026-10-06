@@ -120,8 +120,10 @@ def test_create_backup_config_copies_content(tmp_path):
 
 
 def test_controller_param_tables_stay_consistent_after_dedup():
-    """Regression test for collapsing 4 hand-kept dicts/lists into one
-    _CONTROLLER_PARAMS registry - every derived table must still agree."""
+    """
+    Regression test for collapsing 4 hand-kept dicts/lists into one
+    _CONTROLLER_PARAMS registry - every derived table must still agree.
+    """
     assert set(cc.CONTROLLER_PARAM_MAPPING) == set(cc.CONTROLLER_PARAM_TYPES)
 
     enable_by_name = {

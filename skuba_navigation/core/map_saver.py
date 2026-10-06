@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Serializes the current SLAM Toolbox map to disk. Used by map_save_cli's
-interactive `ros2 run skuba_navigation map_save_cli` helper.
+Serialize the current SLAM Toolbox map to disk.
+
+Used by map_save_cli's interactive `ros2 run skuba_navigation map_save_cli` helper.
 
 Matches the maps/ layout convention (maps/<category>/<name>.{pgm,yaml,data,
 posegraph}, e.g. maps/30_skuba_home/skuba_home.pgm) instead of inventing an
@@ -26,7 +27,7 @@ class MapSaver:
         self.map_path = os.path.join(self.save_directory, self.map_name)
 
     def run_command(self, command):
-        """Execute a command and return success status"""
+        """Execute a command and return success status."""
         try:
             subprocess.run(command, check=True, capture_output=True, timeout=30)
             return True
@@ -34,7 +35,7 @@ class MapSaver:
             return False
 
     def save_nav2_map(self):
-        """Save map using nav2_map_server"""
+        """Save map using nav2_map_server."""
         command = [
             "ros2",
             "run",
@@ -46,7 +47,7 @@ class MapSaver:
         return self.run_command(command)
 
     def serialize_slam_map(self):
-        """Serialize SLAM toolbox map"""
+        """Serialize SLAM toolbox map."""
         command = [
             "ros2",
             "service",
@@ -58,7 +59,7 @@ class MapSaver:
         return self.run_command(command)
 
     def save_maps(self):
-        """Save both maps"""
+        """Save both maps."""
         print(f"Saving maps: {self.map_name}")
 
         os.makedirs(self.save_directory, exist_ok=True)

@@ -17,6 +17,8 @@ from ..core.estop_latch import EstopLatch
 
 class EmergencyStopNode(Node):
     """
+    Latch the e-stop from /events/digital_input.
+
     Listens to /events/digital_input (kobuki_ros_interfaces/DigitalInputEvent).
     When pin 0 goes True (e-stop pressed):
       - Latches permanently (never releases, even if pin returns to False).
@@ -32,6 +34,7 @@ class EmergencyStopNode(Node):
     Parameters
     ----------
     lock_topic: str - twist_mux lock topic to raise. Default 'e_stop'.
+
     """
 
     def __init__(self):

@@ -1,4 +1,5 @@
-"""Locate this package's source checkout from its install share directory.
+"""
+Locate this package's source checkout from its install share directory.
 
 No rclpy import. Nodes pass in get_package_share_directory(...) and get back
 the writable source directory (where params/, share/ and maps/ live), so no

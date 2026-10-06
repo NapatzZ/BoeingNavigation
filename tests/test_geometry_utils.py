@@ -1,4 +1,5 @@
-"""Unit tests for the pure geometry helpers.
+"""
+Unit tests for the pure geometry helpers.
 
 These are pure math with no ROS state, so they run without a robot or a
 running graph - which is the whole point of keeping them in geometry_utils.

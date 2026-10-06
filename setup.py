@@ -6,7 +6,8 @@ package_name = "skuba_navigation"
 
 
 def maps_data_files():
-    """Install maps/ preserving its category-subfolder structure.
+    """
+    Install maps/ preserving its category-subfolder structure.
 
     maps/ is organized into category folders (00_test, 10_rcj, ...), so a flat
     glob would miss the nested files. Walk the tree and emit one data_files

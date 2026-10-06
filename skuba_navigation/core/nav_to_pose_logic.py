@@ -1,4 +1,5 @@
-"""Pure math / YAML logic for nav_to_pose.py. No rclpy import.
+"""
+Pure math / YAML logic for nav_to_pose.py. No rclpy import.
 
 The retry/timeout control loops in nav_to_pose.py are inherently ROS I/O
 sequencing (TF lookups + cmd_vel publishing inside `while rclpy.ok()` loops)
@@ -52,7 +53,8 @@ def load_saved_positions(yaml_path) -> dict:
 def merge_position(
     yaml_path, position_name, frame_id, translation, orientation
 ) -> dict:
-    """Read saved_pose.yaml (or start empty) and merge in one named position.
+    """
+    Read saved_pose.yaml (or start empty) and merge in one named position.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples. Does not
     write — caller decides when/whether to persist (e.g. after a write-
@@ -86,7 +88,8 @@ def distance_2d(x1, y1, x2, y2) -> float:
 
 
 def compute_rotation_command(angle_diff, error_rate) -> float:
-    """PD control law for in-place rotation. Returns signed angular speed.
+    """
+    PD control law for in-place rotation. Returns signed angular speed.
 
     KP: stiff response - fast approach, strong braking.
     KD: damps overshoot by opposing the approach speed.
@@ -133,7 +136,8 @@ def make_pose(x, y, yaw, stamp, frame_id="map") -> PoseStamped:
 def verify_directed_standoff(
     final_x, final_y, target_x, target_y, requested_side, standoff
 ):
-    """Check the final pose against a directed (named-side) standoff goal.
+    """
+    Check the final pose against a directed (named-side) standoff goal.
 
     Returns (success: bool, final_distance, message).
     """
@@ -157,7 +161,8 @@ def verify_directed_standoff(
 
 
 def verify_auto_standoff(final_x, final_y, target_x, target_y, stop_distance):
-    """Check the final pose against the legacy AUTO (undirected) standoff goal.
+    """
+    Check the final pose against the legacy AUTO (undirected) standoff goal.
 
     Returns (success: bool, final_distance, message).
     """

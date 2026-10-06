@@ -1,4 +1,5 @@
-"""Pure e-stop latch state machine. No rclpy import.
+"""
+Pure e-stop latch state machine. No rclpy import.
 
 Triggers once, then stays latched permanently — matches the physical
 e-stop semantics in emergency_stop.py: never auto-release.

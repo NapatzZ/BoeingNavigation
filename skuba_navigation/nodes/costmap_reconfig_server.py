@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Costmap Dynamic Reconfiguration Server for SKUBA robot.
+
 This node provides a simple service to dynamically modify costmap parameters
 by updating YAML configuration and reloading to Nav2.
 
@@ -35,6 +36,7 @@ CONTROLLER_SERVER_NODE = "/controller_server"
 class CostmapReconfigServer(Node):
     """
     Simple costmap reconfiguration server that modifies YAML and applies to Nav2.
+
     Also supports controller server parameter changes for motion mode switching
     (e.g., backward-only mode via allow_reversing / min_vel_x / max_vel_x).
     """
@@ -155,7 +157,10 @@ class CostmapReconfigServer(Node):
             converted = cc.convert_value(request.value, param_type)
             if converted is None:
                 response.success = False
-                response.message = f"Cannot convert '{request.value}' for parameter '{request.parameter_name}'"
+                response.message = (
+                    f"Cannot convert '{request.value}' for parameter "
+                    f"'{request.parameter_name}'"
+                )
                 return response
 
             full_name = cc.CONTROLLER_PARAM_MAPPING[request.parameter_name]
@@ -266,6 +271,7 @@ class CostmapReconfigServer(Node):
     def _set_controller_param(self, full_param_name, value, param_type):
         """
         Send a single parameter to /controller_server via SetParameters.
+
         Returns dict with 'success' bool and optional 'error' string.
         """
         try:
@@ -317,8 +323,9 @@ class CostmapReconfigServer(Node):
 
     def _snapshot_controller_params(self, simple_names: list) -> bool:
         """
-        Fetch current values of the listed parameters from /controller_server
-        and store them in self._controller_original_snapshot.
+        Snapshot the listed /controller_server parameters.
+
+        Fetches their current values into self._controller_original_snapshot.
         Returns True if all params were fetched successfully.
         """
         try:
@@ -374,12 +381,16 @@ class CostmapReconfigServer(Node):
     def reconfig_callback(self, request, response):
         try:
             self.get_logger().info(
-                f"Reconfig request: {request.costmap_type}.{request.parameter_name} = {request.value}"
+                f"Reconfig request: {request.costmap_type}.{request.parameter_name} = "
+                f"{request.value}"
             )
 
             if request.costmap_type not in ["local", "global"]:
                 response.success = False
-                response.message = f"Invalid costmap_type: {request.costmap_type}. Must be 'local' or 'global'"
+                response.message = (
+                    f"Invalid costmap_type: {request.costmap_type}. Must be 'local' or "
+                    "'global'"
+                )
                 return response
 
             if request.parameter_name not in cc.PARAM_MAPPING:
@@ -516,9 +527,12 @@ class CostmapReconfigServer(Node):
         return response
 
     def initialize_config_file(self):
-        """Seed the dynamic config file with defaults, but never on top of an
-        existing one — otherwise every node restart would silently discard
-        whatever an operator has tuned since the last colcon build."""
+        """
+        Seed the dynamic config file with defaults, never over an existing one.
+
+        Otherwise every node restart would silently discard
+        whatever an operator has tuned since the last colcon build.
+        """
         if os.path.exists(self.config_path):
             self.get_logger().info(f"Using existing config file: {self.config_path}")
             return

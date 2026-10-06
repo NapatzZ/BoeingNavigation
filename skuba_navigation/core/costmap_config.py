@@ -1,4 +1,5 @@
-"""Pure costmap/controller reconfiguration logic for costmap_reconfig_server.py.
+"""
+Pure costmap/controller reconfiguration logic for costmap_reconfig_server.py.
 
 No rclpy import. Everything here is YAML/dict manipulation and validation that
 does not need a live parameter-service call.
@@ -33,7 +34,7 @@ PARAM_MAPPING = {
 # These are FollowPath (DWB / RPP) parameters — adjust plugin prefix to match
 # your config. Common prefixes: "FollowPath" (RPP), "FollowPath.critics" (DWB).
 _CONTROLLER_PARAMS = {
-    # name                    full path                          type                              backward  normal
+    # name: (full path, type, backward value, normal value)
     "allow_reversing": (
         "FollowPath.allow_reversing",
         ParameterType.PARAMETER_BOOL,

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Small pure-math geometry helpers shared across navigation nodes.
+"""
+Small pure-math geometry helpers shared across navigation nodes.
 
 These were previously copy-pasted in nav_to_pose.py and save_location.py.
 Everything here is pure (no ROS state), so it is trivially unit-testable and
@@ -26,7 +27,8 @@ def quaternion_to_yaw(q) -> float:
 
 
 def yaw_to_quaternion(yaw: float):
-    """Convert a yaw (radians) to the (z, w) components of a planar quaternion.
+    """
+    Convert a yaw (radians) to the (z, w) components of a planar quaternion.
 
     x and y are always 0 for a rotation about the z axis, so only z and w are
     returned.
@@ -59,7 +61,8 @@ AUTO_SIDES = ("", "AUTO", "NONE")
 
 
 def approach_pose_for_side(target_x, target_y, reference_yaw, side, standoff):
-    """Standoff pose on `side` of a target, oriented to look back at it.
+    """
+    Standoff pose on `side` of a target, oriented to look back at it.
 
     `side` is a key of SIDE_OFFSETS. `reference_yaw` is the frame the side is
     measured in (0.0 for map-relative). `standoff` is the distance from the

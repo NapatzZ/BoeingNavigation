@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-following_server.py  –  Nav2 dynamic person-following server (GoalUpdater pattern)
-=================================================================================
+Nav2 dynamic person-following server (GoalUpdater pattern).
+
 Bridges follow.py (vision) → Nav2 navigation stack the way Nav2 is meant to do
 dynamic following (https://docs.nav2.org/tutorials/docs/navigation2_dynamic_point_following.html).
 

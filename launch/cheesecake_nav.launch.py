@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Full Cheesecake navigation stack on the real robot.
+"""
+Full Cheesecake navigation stack on the real robot.
 
 Brings up, in order:
   1. hardware + complete-robot state publisher  (skuba_bringup)

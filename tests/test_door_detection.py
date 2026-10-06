@@ -1,4 +1,5 @@
-"""Unit tests for the door open/closed detector.
+"""
+Unit tests for the door open/closed detector.
 
 process_scan() only takes plain ranges/angle numbers, so it needs no ROS
 message types at all.
