@@ -3,6 +3,7 @@
 The retry/TF/cmd_vel control loops themselves stay in the node (they need a
 live rclpy graph); this only covers what was extracted as pure functions.
 """
+
 import math
 
 import pytest
@@ -23,7 +24,9 @@ def test_compute_rotation_command_sign_matches_error_direction():
 def test_compute_rotation_command_stays_within_speed_limits():
     for angle_diff_deg in (0.5, 5.0, 45.0, 179.0):
         speed = logic.compute_rotation_command(math.radians(angle_diff_deg), 0.0)
-        assert logic.ROTATE_MIN_SPEED - 1e-9 <= abs(speed) <= logic.ROTATE_MAX_SPEED + 1e-9
+        assert (
+            logic.ROTATE_MIN_SPEED - 1e-9 <= abs(speed) <= logic.ROTATE_MAX_SPEED + 1e-9
+        )
 
 
 def test_compute_rotation_command_decel_zone_forces_min_speed():
@@ -61,16 +64,26 @@ def test_make_pose_builds_the_expected_fields():
 
 def test_verify_directed_standoff_success():
     ok, dist, _ = logic.verify_directed_standoff(
-        final_x=1.0, final_y=0.0, target_x=0.0, target_y=0.0,
-        requested_side="FRONT", standoff=1.0)
+        final_x=1.0,
+        final_y=0.0,
+        target_x=0.0,
+        target_y=0.0,
+        requested_side="FRONT",
+        standoff=1.0,
+    )
     assert ok is True
     assert dist == pytest.approx(1.0)
 
 
 def test_verify_directed_standoff_wrong_distance():
     ok, dist, msg = logic.verify_directed_standoff(
-        final_x=3.0, final_y=0.0, target_x=0.0, target_y=0.0,
-        requested_side="FRONT", standoff=1.0)
+        final_x=3.0,
+        final_y=0.0,
+        target_x=0.0,
+        target_y=0.0,
+        requested_side="FRONT",
+        standoff=1.0,
+    )
     assert ok is False
     assert dist == pytest.approx(3.0)
     assert "distance" in msg.lower()
@@ -80,36 +93,45 @@ def test_verify_directed_standoff_wrong_side():
     # Correct radial distance (1.0m) but on the LEFT side, not the
     # requested FRONT side.
     ok, _dist, msg = logic.verify_directed_standoff(
-        final_x=0.0, final_y=1.0, target_x=0.0, target_y=0.0,
-        requested_side="FRONT", standoff=1.0)
+        final_x=0.0,
+        final_y=1.0,
+        target_x=0.0,
+        target_y=0.0,
+        requested_side="FRONT",
+        standoff=1.0,
+    )
     assert ok is False
     assert "side" in msg.lower()
 
 
 def test_verify_auto_standoff_within_tolerance():
     ok, dist, _ = logic.verify_auto_standoff(
-        final_x=1.0, final_y=0.0, target_x=0.0, target_y=0.0, stop_distance=1.0)
+        final_x=1.0, final_y=0.0, target_x=0.0, target_y=0.0, stop_distance=1.0
+    )
     assert ok is True
     assert dist == pytest.approx(1.0)
 
 
 def test_verify_auto_standoff_outside_tolerance():
     ok, _dist, _ = logic.verify_auto_standoff(
-        final_x=2.0, final_y=0.0, target_x=0.0, target_y=0.0, stop_distance=1.0)
+        final_x=2.0, final_y=0.0, target_x=0.0, target_y=0.0, stop_distance=1.0
+    )
     assert ok is False
 
 
 def test_merge_position_starts_empty_when_file_is_missing(tmp_path):
     yaml_path = str(tmp_path / "does_not_exist.yaml")
     data = logic.merge_position(
-        yaml_path, "home", "map", (1.0, 2.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+        yaml_path, "home", "map", (1.0, 2.0, 0.0), (0.0, 0.0, 0.0, 1.0)
+    )
     assert data["positions"]["home"]["pose"]["position"]["x"] == pytest.approx(1.0)
 
 
 def test_write_and_load_saved_positions_roundtrip(tmp_path):
     yaml_path = str(tmp_path / "saved_pose.yaml")
     data = logic.merge_position(
-        yaml_path, "home", "map", (1.0, 2.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+        yaml_path, "home", "map", (1.0, 2.0, 0.0), (0.0, 0.0, 0.0, 1.0)
+    )
     logic.write_positions_yaml(yaml_path, data)
 
     positions = logic.load_saved_positions(yaml_path)

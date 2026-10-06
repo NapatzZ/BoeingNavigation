@@ -6,7 +6,6 @@ e-stop semantics in emergency_stop.py: never auto-release.
 
 
 class EstopLatch:
-
     def __init__(self):
         self._active = False
 

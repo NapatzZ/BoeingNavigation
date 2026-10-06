@@ -2,6 +2,7 @@
 
 Pure state, no rclpy - so it runs without a robot or a running graph.
 """
+
 from skuba_navigation.core.estop_latch import EstopLatch
 
 

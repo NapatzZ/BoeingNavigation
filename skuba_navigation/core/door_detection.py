@@ -1,4 +1,5 @@
 """Pure door open/closed detection logic for door_detector.py. No rclpy import."""
+
 import math
 
 import numpy as np
@@ -13,8 +14,15 @@ class DoorDetector:
                   (the laser passes through the open doorway)
     """
 
-    def __init__(self, threshold, front_center_rad, front_rad, open_ratio,
-                 min_beams, confirm_need):
+    def __init__(
+        self,
+        threshold,
+        front_center_rad,
+        front_rad,
+        open_ratio,
+        min_beams,
+        confirm_need,
+    ):
         self.threshold = threshold
         self.front_center_rad = front_center_rad
         self.front_rad = front_rad
@@ -49,7 +57,7 @@ class DoorDetector:
         angles = np.fromiter(
             (angle_min + i * angle_increment for i in range(num_beams)),
             dtype=np.float64,
-            count=num_beams
+            count=num_beams,
         )
         # Circular difference wrapped to [-pi, pi], so the cone works at any
         # center angle, including 180 deg (swapped LiDAR mount).
@@ -57,7 +65,7 @@ class DoorDetector:
         front_indices = np.where(np.abs(diff) <= self.front_rad)[0]
 
         if front_indices.size == 0:
-            return 'no_beams', None
+            return "no_beams", None
 
         front_ranges = np.array(ranges)[front_indices]
 
@@ -66,7 +74,7 @@ class DoorDetector:
         valid_ranges = front_ranges[valid_mask]
 
         if valid_ranges.size < self.min_beams:
-            return 'too_few_beams', int(valid_ranges.size)
+            return "too_few_beams", int(valid_ranges.size)
 
         open_finite = int(np.sum(valid_ranges >= self.threshold))
         open_inf = int(np.sum(inf_open_mask))
@@ -84,6 +92,11 @@ class DoorDetector:
 
         if self._confirm_streak >= self.confirm_need and candidate != self.door_open:
             self.door_open = candidate
-            return 'state_change', ('OPEN' if self.door_open else 'CLOSED', open_ratio, total_open, total_count)
+            return "state_change", (
+                "OPEN" if self.door_open else "CLOSED",
+                open_ratio,
+                total_open,
+                total_count,
+            )
 
         return None, open_ratio

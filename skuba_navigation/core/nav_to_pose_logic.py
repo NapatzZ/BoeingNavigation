@@ -5,6 +5,7 @@ sequencing (TF lookups + cmd_vel publishing inside `while rclpy.ok()` loops)
 and stay in the node. This module holds only what can be computed or
 file-read/written without a live node.
 """
+
 import math
 
 import yaml
@@ -31,7 +32,7 @@ FACING_TOLERANCE = math.radians(5.0)
 
 def load_saved_positions(yaml_path) -> dict:
     """Parse saved_pose.yaml into a dict of name -> PoseStamped."""
-    with open(yaml_path, 'r') as file:
+    with open(yaml_path, "r") as file:
         data = yaml.safe_load(file)
         positions = {}
         for name, pose_data in data.get("positions", {}).items():
@@ -48,7 +49,9 @@ def load_saved_positions(yaml_path) -> dict:
         return positions
 
 
-def merge_position(yaml_path, position_name, frame_id, translation, orientation) -> dict:
+def merge_position(
+    yaml_path, position_name, frame_id, translation, orientation
+) -> dict:
     """Read saved_pose.yaml (or start empty) and merge in one named position.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples. Does not
@@ -56,7 +59,7 @@ def merge_position(yaml_path, position_name, frame_id, translation, orientation)
     permission check).
     """
     try:
-        with open(yaml_path, 'r') as file:
+        with open(yaml_path, "r") as file:
             data = yaml.safe_load(file) or {"positions": {}}
     except Exception:
         data = {"positions": {}}
@@ -74,7 +77,7 @@ def merge_position(yaml_path, position_name, frame_id, translation, orientation)
 
 
 def write_positions_yaml(yaml_path, data: dict) -> None:
-    with open(yaml_path, 'w') as file:
+    with open(yaml_path, "w") as file:
         yaml.safe_dump(data, file)
 
 
@@ -111,7 +114,7 @@ def path_is_plannable(path) -> bool:
     return len(path.poses) > 0
 
 
-def make_pose(x, y, yaw, stamp, frame_id='map') -> PoseStamped:
+def make_pose(x, y, yaw, stamp, frame_id="map") -> PoseStamped:
     """Build a PoseStamped in `frame_id` from a planar (x, y, yaw)."""
     pose = PoseStamped()
     pose.header.stamp = stamp
@@ -127,8 +130,9 @@ def make_pose(x, y, yaw, stamp, frame_id='map') -> PoseStamped:
     return pose
 
 
-def verify_directed_standoff(final_x, final_y, target_x, target_y, requested_side,
-                              standoff):
+def verify_directed_standoff(
+    final_x, final_y, target_x, target_y, requested_side, standoff
+):
     """Check the final pose against a directed (named-side) standoff goal.
 
     Returns (success: bool, final_distance, message).
