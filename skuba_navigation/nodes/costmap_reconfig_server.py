@@ -24,6 +24,7 @@ from pathlib import Path
 from std_srvs.srv import Trigger
 
 from ..core import costmap_config as cc
+from ..core.package_paths import find_package_source_dir
 
 NAMESPACE = 'skuba/navigation'
 
@@ -45,8 +46,8 @@ class CostmapReconfigServer(Node):
         # File paths
         package_name = 'skuba_navigation'
         install_share_path = Path(get_package_share_directory(package_name))
-        ws_root = install_share_path.parents[3]
-        config_path = ws_root / 'src' / package_name / 'params' / 'costmap_dynamic_config.yaml'
+        source_dir = find_package_source_dir(install_share_path, package_name)
+        config_path = (source_dir or install_share_path) / 'params' / 'costmap_dynamic_config.yaml'
         self.config_path = str(config_path)
 
         # ── Costmap services ──────────────────────────────────────────────────

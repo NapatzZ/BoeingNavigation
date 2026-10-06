@@ -29,12 +29,13 @@ from ..core.geometry_utils import (
     quaternion_to_yaw,
 )
 from ..core import nav_to_pose_logic as logic
+from ..core.package_paths import find_package_source_dir
 
 NAMESPACE = 'skuba/navigation'
 package_name = 'skuba_navigation'
 install_share_path = Path(get_package_share_directory(package_name))
-ws_root = install_share_path.parents[3]
-pose_path = ws_root / 'src' / package_name / 'share' / 'saved_pose.yaml'
+source_dir = find_package_source_dir(install_share_path, package_name)
+pose_path = (source_dir / 'share' if source_dir is not None else install_share_path) / 'saved_pose.yaml'
 yaml_path = str(pose_path)
 
 class NavigateToGoalServer(Node):

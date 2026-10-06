@@ -12,6 +12,7 @@ from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
 from ..core.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from ..core.package_paths import find_package_source_dir
 from ..core.zone_detection import (
     ZONES,
     HALF_WIDTH_DEG,
@@ -51,12 +52,12 @@ class SaveLocationServer(Node):
         # ── YAML path ─────────────────────────────────────────────────────────
         try:
             install_share = Path(get_package_share_directory(PACKAGE_NAME))
-            ws_root = install_share.parents[3]
-            self.yaml_path = ws_root / 'src' / PACKAGE_NAME / 'share' / 'saved_pose.yaml'
-            if not self.yaml_path.parent.exists():
+            source_dir = find_package_source_dir(install_share, PACKAGE_NAME)
+            if source_dir is not None:
+                self.yaml_path = source_dir / 'share' / 'saved_pose.yaml'
+            else:
                 self.get_logger().warning(
-                    f"Source dir not found at {self.yaml_path.parent}. "
-                    "Falling back to install share."
+                    "Source checkout not found. Falling back to install share."
                 )
                 self.yaml_path = install_share / 'saved_pose.yaml'
         except Exception as e:
