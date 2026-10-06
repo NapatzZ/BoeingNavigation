@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import threading
+import time
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
@@ -16,6 +17,8 @@ from ..core.estop_latch import EstopLatch
 
 class EmergencyStopNode(Node):
     """
+    Latch the e-stop from /events/digital_input.
+
     Listens to /events/digital_input (kobuki_ros_interfaces/DigitalInputEvent).
     When pin 0 goes True (e-stop pressed):
       - Latches permanently (never releases, even if pin returns to False).
@@ -31,6 +34,7 @@ class EmergencyStopNode(Node):
     Parameters
     ----------
     lock_topic: str - twist_mux lock topic to raise. Default 'e_stop'.
+
     """
 
     def __init__(self):
@@ -88,9 +92,13 @@ class EmergencyStopNode(Node):
 
     # ------------------------------------------------------------------
     def _publish_loop(self) -> None:
+        # 10 Hz: without a sleep this loop pinned a whole CPU core, all the
+        # time (and flooded e_stop once latched). twist_mux's e_stop lock has
+        # no timeout, so the rate only needs to cover late subscribers.
         while not self._shutdown:
             if self._latch.is_active:
                 self._lock_pub.publish(Bool(data=True))
+            time.sleep(0.1)
 
     # ------------------------------------------------------------------
     def destroy_node(self) -> None:

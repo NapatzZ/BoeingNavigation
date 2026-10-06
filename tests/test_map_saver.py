@@ -1,4 +1,5 @@
-"""Unit tests for MapSaver's path logic and success/failure combination.
+"""
+Unit tests for MapSaver's path logic and success/failure combination.
 
 No rclpy import in map_saver.py; the actual `ros2 run` / `ros2 service call`
 subprocess calls are monkeypatched out so this stays a pure unit test.

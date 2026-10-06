@@ -26,6 +26,7 @@ Parameters
                                            before the published state changes.
                                            Filters out momentary sensor noise.
   publish_rate      (float, default 10.0)  Door-status topic publish rate [Hz].
+
 """
 
 import math
@@ -93,9 +94,10 @@ class DoorDetectorNode(Node):
 
         self.get_logger().info("Door Detector Node initialized  [INACTIVE]")
         self.get_logger().info(f"  threshold     : {self._detector.threshold:.2f} m")
+        reversed_mount = math.isclose(math.degrees(front_center_rad), 180.0)
+        mount = "swapped — LiDAR mounted reversed" if reversed_mount else "normal mount"
         self.get_logger().info(
-            f'  front center  : {math.degrees(front_center_rad):.1f}°'
-            f'  ({"swapped — LiDAR mounted reversed" if math.isclose(math.degrees(front_center_rad), 180.0) else "normal mount"})'
+            f"  front center  : {math.degrees(front_center_rad):.1f}°  ({mount})"
         )
         self.get_logger().info(f"  front cone    : ±{math.degrees(front_rad):.1f}°")
         self.get_logger().info(f"  open_ratio    : {self._detector.open_ratio:.0%}")

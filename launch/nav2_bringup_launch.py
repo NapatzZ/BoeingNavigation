@@ -46,6 +46,7 @@ def generate_launch_description():
     use_composition = LaunchConfiguration("use_composition")
     use_respawn = LaunchConfiguration("use_respawn")
     log_level = LaunchConfiguration("log_level")
+    publish_laser_tf = LaunchConfiguration("publish_laser_tf")
     use_localization = LaunchConfiguration("use_localization")
 
     remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
@@ -128,6 +129,12 @@ def generate_launch_description():
         description="Whether to respawn if a node crashes. Applied when composition is disabled.",
     )
 
+    declare_publish_laser_tf_cmd = DeclareLaunchArgument(
+        "publish_laser_tf",
+        default_value="false",
+        description="Publish a static base_link->laser (only when no robot_state_publisher runs)",
+    )
+
     declare_log_level_cmd = DeclareLaunchArgument(
         "log_level", default_value="info", description="log level"
     )
@@ -196,6 +203,10 @@ def generate_launch_description():
                 name="filter_lidar",
                 output="screen",
             ),
+            # Off by default: skuba_description's laser_joint already gives
+            # base_link -> laser through robot_state_publisher (which nav needs
+            # for base_link anyway). Two publishers with slightly different
+            # values made the laser frame flicker between them.
             Node(
                 package="tf2_ros",
                 executable="static_transform_publisher",
@@ -211,6 +222,7 @@ def generate_launch_description():
                     "laser",
                 ],
                 output="screen",
+                condition=IfCondition(publish_laser_tf),
             ),
             Node(
                 package="skuba_navigation",
@@ -250,6 +262,7 @@ def generate_launch_description():
     ld.add_action(declare_use_composition_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
+    ld.add_action(declare_publish_laser_tf_cmd)
     ld.add_action(declare_use_localization_cmd)
     ld.add_action(bringup_cmd_group)
 

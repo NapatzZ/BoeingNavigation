@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Full Cheesecake navigation stack for the restaurant map, with real AMCL.
+"""
+Full Cheesecake navigation stack for the restaurant map, with real AMCL.
 
 nav2_bringup_launch.py is launched with its default use_localization:=True, so
 its stock localization_launch.py runs AMCL against the loaded map — robot pose
@@ -47,7 +48,7 @@ def generate_launch_description():
         description="nav2 parameters file",
     )
 
-    # 1. Hardware + complete-robot state publisher (kobuki, lidar, teleop, RSP)
+    # 1. Hardware + complete-robot state publisher (skuba_bringup: kobuki, lidar, teleop, RSP)
     # launch_robot_state_publisher:=false -- the manipulation stack's
     # move_group.launch.py already runs its own robot_state_publisher from the
     # same URDF (plus the live arm joints this one never gets). Leaving both
@@ -55,11 +56,15 @@ def generate_launch_description():
     # once, which was diagnosed as the cause of move_to_tf intermittently
     # resolving targets to the wrong place (TEAM2-011, 2026-08-13).
     cheesecake_bringup = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(bringup_share, "cheesecake_bringup.launch.py")
-        ),
+        PythonLaunchDescriptionSource(os.path.join(bringup_share, "bringup.launch.py")),
         launch_arguments={
             "launch_robot_state_publisher": "false",
+            # skuba_bringup starts the RealSense by default; the old
+            # cheesecake_bringup never did, and nav does not need it.
+            "launch_camera": "false",
+            # The xbox pad goes through twist_mux (joystick lane, priority 100)
+            # instead of straight onto /cmd_vel, so the e_stop lock stops it too.
+            "teleop_cmd_vel_topic": "cmd_vel_joy",
         }.items(),
     )
 

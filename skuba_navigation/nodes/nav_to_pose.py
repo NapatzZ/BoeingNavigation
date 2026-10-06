@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Navigation server for a SKUBA robot using ROS 2 Humble.
+
 This module provides a comprehensive navigation solution for a SKUBA robot,
 allowing it to navigate to saved positions or specific coordinates, save current
 locations, and perform basic movement operations like rotation and linear movement.
@@ -53,6 +54,7 @@ yaml_path = str(pose_path)
 class NavigateToGoalServer(Node):
     """
     A ROS 2 node that provides navigation services for a SKUBA robot.
+
     This class implements services for navigating to saved positions,
     direct coordinates, saving positions, and basic movement control.
     It integrates with Nav2 for path planning and execution.
@@ -172,13 +174,17 @@ class NavigateToGoalServer(Node):
 
         self.get_logger().info("Waiting for services to be ready...")
         for _ in range(5):
-            self.get_clock().sleep_for(Duration(seconds=0.2))
+            # Wall-clock sleep: with use_sim_time the node clock only advances
+            # when /clock is processed, and nothing spins this node yet, so
+            # get_clock().sleep_for() would block forever in simulation.
+            time.sleep(0.2)
             rclpy.spin_once(self, timeout_sec=0.1)
         self.get_logger().info("Services initialized and should be available now")
 
     def init_navigator(self):
         """
         Initialize the navigator without waiting for Nav2.
+
         Creates a BasicNavigator instance without waiting for Nav2 to become active.
         """
         self.navigator = BasicNavigator()
@@ -189,8 +195,11 @@ class NavigateToGoalServer(Node):
     def load_saved_positions(self):
         """
         Load named positions from a YAML file.
-        Returns:
-            dict: Dictionary of named positions as PoseStamped messages
+
+        Returns
+        -------
+            dict: Dictionary of named positions as PoseStamped messages.
+
         """
         try:
             self.get_logger().info(f"Loading saved positions from: {yaml_path}")
@@ -206,11 +215,16 @@ class NavigateToGoalServer(Node):
     def set_named_goal_callback(self, request, response):
         """
         Service callback to navigate to a named position.
-        Args:
+
+        Args
+        ----
             request: NavToName request containing position name and timeout
             response: Service response
-        Returns:
-            response: Updated service response with success status
+
+        Returns
+        -------
+            response: Updated service response with success status.
+
         """
         try:
             # Reload YAML file to get latest positions
@@ -233,11 +247,16 @@ class NavigateToGoalServer(Node):
     def set_pose_goal_callback(self, request, response):
         """
         Service callback to navigate to a specific pose.
-        Args:
+
+        Args
+        ----
             request: NavToPose request containing pose and timeout
             response: Service response
-        Returns:
-            response: Updated service response with success status
+
+        Returns
+        -------
+            response: Updated service response with success status.
+
         """
         try:
             self.get_logger().info(f"Navigating to provided pose: {request.pose}")
@@ -250,17 +269,23 @@ class NavigateToGoalServer(Node):
     def navigate_to_goal(self, goal_pose, timeout, response):
         """
         Navigate to the specified goal with retry mechanism.
-        Args:
+
+        Args
+        ----
             goal_pose: PoseStamped target position
             timeout: Time limit for navigation in seconds
             response: Service response to update
-        Returns:
-            response: Updated service response with success status
+
+        Returns
+        -------
+            response: Updated service response with success status.
+
         """
         try:
             self.get_logger().info("Received a new navigation goal!")
             self.get_logger().info(
-                f"Goal position: x={goal_pose.pose.position.x:.2f}, y={goal_pose.pose.position.y:.2f}"
+                f"Goal position: x={goal_pose.pose.position.x:.2f}, "
+                f"y={goal_pose.pose.position.y:.2f}"
             )
 
             try:
@@ -306,7 +331,8 @@ class NavigateToGoalServer(Node):
 
                         if time.time() - start_time > timeout:
                             self.get_logger().info(
-                                f"Timeout reached after {timeout}s! Retrying ({retry_count + 1})..."
+                                f"Timeout reached after {timeout}s! Retrying "
+                                f"({retry_count + 1})..."
                             )
                             try:
                                 self.navigator.cancelTask()
@@ -358,9 +384,11 @@ class NavigateToGoalServer(Node):
                             self.get_logger().error(
                                 f"Error checking task completion: {e}"
                             )
-                            # If we can't check completion but got SUCCEEDED, make log warning and return false
+                            # If we can't check completion but got SUCCEEDED, make log warning and
+                            # return false
                             self.get_logger().warning(
-                                "Nav2 reports SUCCESS but cannot verify task completion - treating as FAILED for safety!"
+                                "Nav2 reports SUCCESS but cannot verify task completion - "
+                                "treating as FAILED for safety!"
                             )
                             retry_count += 1
                     elif result == TaskResult.FAILED:
@@ -391,10 +419,15 @@ class NavigateToGoalServer(Node):
     def _calculate_distance_to_goal(self, goal_pose):
         """
         Calculate the actual distance from current robot position to goal.
-        Args:
+
+        Args
+        ----
             goal_pose: PoseStamped target position
-        Returns:
-            float: Distance in meters, or None if calculation fails
+
+        Returns
+        -------
+            float: Distance in meters, or None if calculation fails.
+
         """
         try:
             # Get current robot position
@@ -409,10 +442,12 @@ class NavigateToGoalServer(Node):
             )
 
             self.get_logger().debug(
-                f"Current position: x={current_tf.transform.translation.x:.2f}, y={current_tf.transform.translation.y:.2f}"
+                f"Current position: x={current_tf.transform.translation.x:.2f}, "
+                f"y={current_tf.transform.translation.y:.2f}"
             )
             self.get_logger().debug(
-                f"Goal position: x={goal_pose.pose.position.x:.2f}, y={goal_pose.pose.position.y:.2f}"
+                f"Goal position: x={goal_pose.pose.position.x:.2f}, "
+                f"y={goal_pose.pose.position.y:.2f}"
             )
             self.get_logger().debug(f"Distance to goal: {distance:.2f}m")
 
@@ -423,9 +458,7 @@ class NavigateToGoalServer(Node):
             return None
 
     def clear_costmaps_humble(self):
-        """
-        Alternative method to clear costmaps in Humble by clearing global and local maps separately.
-        """
+        """Clear the global and local costmaps separately (Humble workaround)."""
         try:
             # Try to use clearGlobalCostmap and clearLocalCostmap separately
             self.navigator.clearGlobalCostmap()
@@ -437,11 +470,16 @@ class NavigateToGoalServer(Node):
     def cancel_goal_callback(self, req, res):
         """
         Service callback to cancel current navigation.
-        Args:
+
+        Args
+        ----
             req: std_srvs/Trigger request
             res: std_srvs/Trigger response
-        Returns:
-            res: Updated response with success status
+
+        Returns
+        -------
+            res: Updated response with success status.
+
         """
         try:
             self.get_logger().info("Goal cancellation requested.")
@@ -457,11 +495,16 @@ class NavigateToGoalServer(Node):
     def clear_costmap_callback(self, req, res):
         """
         Service callback to clear all costmaps.
-        Args:
+
+        Args
+        ----
             req: std_srvs/Trigger request
             res: std_srvs/Trigger response
-        Returns:
-            res: Updated response with success status
+
+        Returns
+        -------
+            res: Updated response with success status.
+
         """
         try:
             self.get_logger().info("Clearing all costmaps.")
@@ -493,7 +536,8 @@ class NavigateToGoalServer(Node):
         return res
 
     def _lookup_pose(self, frame, timeout_sec=1.0, ref_frame="map"):
-        """Look up `frame` in `ref_frame` via TF.
+        """
+        Look up `frame` in `ref_frame` via TF.
 
         Centralizes the map->frame lookup that was duplicated across every
         motion callback. Callers keep their own try/except so failure handling
@@ -503,7 +547,7 @@ class NavigateToGoalServer(Node):
             ref_frame,
             frame,
             rclpy.time.Time(),
-            rclpy.duration.Duration(seconds=timeout_sec),
+            Duration(seconds=timeout_sec),
         )
 
     def _stop_robot(self, repeats=10, delay=0.02):
@@ -516,6 +560,7 @@ class NavigateToGoalServer(Node):
     def rotate_callback(self, request, response):
         """
         Service callback to rotate the robot with PD-Control for high precision.
+
         Optimized for 'Fast but Accurate' performance on heavy platforms.
         """
         try:
@@ -609,10 +654,12 @@ class NavigateToGoalServer(Node):
                 final_error = abs(math.degrees(actual_rotation) - request.degrees)
 
                 self.get_logger().info(
-                    f"Rotation Complete. Requested: {request.degrees}°, Actual: {math.degrees(actual_rotation):.2f}°, Final Error: {final_error:.2f}°"
+                    f"Rotation Complete. Requested: {request.degrees}°, Actual: "
+                    f"{math.degrees(actual_rotation):.2f}°, Final Error: {final_error:.2f}°"
                 )
 
-                # Success if error is under the requested tolerance (allowing for slight sensor noise)
+                # Success if error is under the requested tolerance (allowing for slight sensor
+                # noise)
                 response.success = final_error < tolerance_deg
 
             except Exception as e:
@@ -632,11 +679,16 @@ class NavigateToGoalServer(Node):
     def move_forward_callback(self, request, response):
         """
         Service callback to move the robot forward by a specified distance with feedback.
-        Args:
+
+        Args
+        ----
             request: MoveWheel request with distance
             response: Service response
-        Returns:
-            response: Updated service response with success status
+
+        Returns
+        -------
+            response: Updated service response with success status.
+
         """
         try:
             target_distance = request.distance
@@ -694,7 +746,8 @@ class NavigateToGoalServer(Node):
                     if int(elapsed) % 1 == 0 and elapsed > 0:
                         progress = (distance_traveled / abs(target_distance)) * 100
                         self.get_logger().info(
-                            f"Progress: {distance_traveled:.3f}m/{target_distance:.2f}m ({progress:.1f}%)"
+                            f"Progress: {distance_traveled:.3f}m/{target_distance:.2f}m "
+                            f"({progress:.1f}%)"
                         )
 
                     # Check if target distance reached
@@ -737,7 +790,8 @@ class NavigateToGoalServer(Node):
 
                 error = abs(actual_distance - target_distance)
                 self.get_logger().info(
-                    f"Movement complete. Target: {target_distance:.2f}m, Actual: {actual_distance:.3f}m, Error: {error:.3f}m"
+                    f"Movement complete. Target: {target_distance:.2f}m, Actual: "
+                    f"{actual_distance:.3f}m, Error: {error:.3f}m"
                 )
                 response.success = (error < (tolerance * 2)) or (
                     abs(target_distance + actual_distance) < (tolerance * 2)
@@ -755,11 +809,16 @@ class NavigateToGoalServer(Node):
     def save_pose_callback(self, request, response):
         """
         Service callback to save the current position with a name using TF transform.
-        Args:
+
+        Args
+        ----
             request: SaveLocationCommand request with location name
             response: Service response
-        Returns:
-            response: Updated service response with success status
+
+        Returns
+        -------
+            response: Updated service response with success status.
+
         """
         try:
             self.get_logger().info("Saving current position using TF transform...")
@@ -770,7 +829,8 @@ class NavigateToGoalServer(Node):
                 # Wait for transform from map to base_link
                 tf = self._lookup_pose("base_link", timeout_sec=1.0)
                 self.get_logger().info(
-                    f"Got TF transform: x={tf.transform.translation.x:.2f}, y={tf.transform.translation.y:.2f}"
+                    f"Got TF transform: x={tf.transform.translation.x:.2f}, "
+                    f"y={tf.transform.translation.y:.2f}"
                 )
 
                 position_name = request.location_name.strip()
@@ -829,11 +889,16 @@ class NavigateToGoalServer(Node):
     def reload_yaml_callback(self, request, response):
         """
         Service callback to reload saved positions from YAML file.
-        Args:
+
+        Args
+        ----
             request: Trigger request
             response: Trigger response
-        Returns:
-            response: Updated response with success status
+
+        Returns
+        -------
+            response: Updated response with success status.
+
         """
         try:
             self.saved_positions = self.load_saved_positions()
@@ -848,21 +913,27 @@ class NavigateToGoalServer(Node):
 
     def nudge_to_tf_callback(self, request, response):
         """
-        Service callback to navigate to a fixed remaining distance towards a TF frame using cmd_vel.
-        The robot will move towards the target TF frame but stop when it is a specified distance away,
-        maintaining its current orientation and optionally rotating to face the target.
+        Service callback to approach a TF frame with cmd_vel, stopping at a set distance.
 
-        Args:
+        The robot moves towards the target TF frame but stops a specified distance
+        away, keeping its current orientation and optionally rotating to face the target.
+
+        Args
+        ----
             request: NavToTF request containing the target TF frame name
             response: Service response
-        Returns:
+
+        Returns
+        -------
             response: Updated service response with success status
+
         """
         try:
             target_tf_name = request.object_tf_name.strip()
             remaining_distance_goal = float(request.stop_distance)
             self.get_logger().info(
-                f"Moving via cmd_vel towards TF frame: {target_tf_name} (stop {remaining_distance_goal}m before target)"
+                f"Moving via cmd_vel towards TF frame: {target_tf_name} (stop "
+                f"{remaining_distance_goal}m before target)"
             )
 
             # Get initial robot position
@@ -873,7 +944,8 @@ class NavigateToGoalServer(Node):
                 initial_yaw = quaternion_to_yaw(initial_tf.transform.rotation)
 
                 self.get_logger().info(
-                    f"Initial robot position: x={initial_x:.3f}, y={initial_y:.3f}, yaw={math.degrees(initial_yaw):.1f}°"
+                    f"Initial robot position: x={initial_x:.3f}, y={initial_y:.3f}, "
+                    f"yaw={math.degrees(initial_yaw):.1f}°"
                 )
 
             except Exception as e:
@@ -920,7 +992,8 @@ class NavigateToGoalServer(Node):
             target_angle = math.atan2(direction_y, direction_x)
 
             self.get_logger().info(
-                f"Target distance to travel: {target_distance:.3f}m, direction: {math.degrees(target_angle):.1f}°"
+                f"Target distance to travel: {target_distance:.3f}m, direction: "
+                f"{math.degrees(target_angle):.1f}°"
             )
 
             # Calculate required rotation to face target
@@ -987,7 +1060,8 @@ class NavigateToGoalServer(Node):
                     if int(elapsed) % 1 == 0 and elapsed > 0:
                         progress = (distance_traveled / target_distance) * 100
                         self.get_logger().info(
-                            f"Movement progress: {distance_traveled:.3f}m/{target_distance:.3f}m ({progress:.1f}%)"
+                            f"Movement progress: {distance_traveled:.3f}m/{target_distance:.3f}m "
+                            f"({progress:.1f}%)"
                         )
 
                     if distance_traveled >= (target_distance - tolerance):
@@ -1105,14 +1179,16 @@ class NavigateToGoalServer(Node):
 
                 error = abs(actual_distance - target_distance)
                 self.get_logger().info(
-                    f"Movement complete. Target: {target_distance:.3f}m, Actual: {actual_distance:.3f}m, Error: {error:.3f}m"
+                    f"Movement complete. Target: {target_distance:.3f}m, Actual: "
+                    f"{actual_distance:.3f}m, Error: {error:.3f}m"
                 )
 
                 response.success = error < 0.15
 
                 if response.success:
                     self.get_logger().info(
-                        f"Successfully moved within desired remaining distance to TF '{target_tf_name}' and rotated to face it"
+                        "Successfully moved within desired remaining distance to TF "
+                        f"'{target_tf_name}' and rotated to face it"
                     )
                 else:
                     self.get_logger().warning(
@@ -1137,7 +1213,8 @@ class NavigateToGoalServer(Node):
         return logic.make_pose(x, y, yaw, self.get_clock().now().to_msg(), frame_id)
 
     def _goal_is_plannable(self, start_pose, goal_pose):
-        """Ask the global planner whether `goal_pose` is reachable.
+        """
+        Ask the global planner whether `goal_pose` is reachable.
 
         Returns True/False, or None when the planner could not be consulted
         (action unavailable, exception) so the caller can tell "unreachable"
@@ -1153,7 +1230,8 @@ class NavigateToGoalServer(Node):
         return logic.path_is_plannable(path)
 
     def _face_target(self, target_x, target_y):
-        """Spin in place until the robot points at (target_x, target_y).
+        """
+        Spin in place until the robot points at (target_x, target_y).
 
         Reuses the PD loop in rotate_callback rather than adding a third
         hand-rolled spin loop. Best effort: returns True when the robot ends up
@@ -1237,7 +1315,8 @@ class NavigateToGoalServer(Node):
                 robot_y = robot_tf.transform.translation.y
                 robot_yaw = quaternion_to_yaw(robot_tf.transform.rotation)
                 self.get_logger().info(
-                    f"Current robot pose: x={robot_x:.3f}, y={robot_y:.3f}, yaw={math.degrees(robot_yaw):.1f}°"
+                    f"Current robot pose: x={robot_x:.3f}, y={robot_y:.3f}, "
+                    f"yaw={math.degrees(robot_yaw):.1f}°"
                 )
             except Exception as e:
                 response.success = False
@@ -1275,7 +1354,8 @@ class NavigateToGoalServer(Node):
                 self.get_logger().info(
                     f"Standoff on side {requested_side}: x={goal_x:.3f}, y={goal_y:.3f}, "
                     f"yaw={math.degrees(goal_yaw):.1f}° "
-                    f"(standoff {standoff:.3f}m = radius {object_radius:.3f} + stop {stop_distance:.3f})"
+                    f"(standoff {standoff:.3f}m = radius {object_radius:.3f} + stop "
+                    f"{stop_distance:.3f})"
                 )
 
                 # "Already there" must be judged against the standoff POSE, not
@@ -1308,7 +1388,8 @@ class NavigateToGoalServer(Node):
                 goal_yaw = math.atan2(dy, dx)
 
             self.get_logger().info(
-                f"Calculated goal: x={goal_x:.3f}, y={goal_y:.3f}, yaw={math.degrees(goal_yaw):.1f}°"
+                f"Calculated goal: x={goal_x:.3f}, y={goal_y:.3f}, "
+                f"yaw={math.degrees(goal_yaw):.1f}°"
             )
 
             goal_pose = self._make_pose(goal_x, goal_y, goal_yaw)
@@ -1421,7 +1502,10 @@ class NavigateToGoalServer(Node):
 
                     if ok:
                         response.success = True
-                        response.message = f"Parked on the {requested_side} side of '{target_tf_name}'."
+                        response.message = (
+                            f"Parked on the {requested_side} side of "
+                            f"'{target_tf_name}'."
+                        )
                         self.get_logger().info(log_msg + " - Success!")
                     else:
                         response.success = False
@@ -1459,7 +1543,7 @@ class NavigateToGoalServer(Node):
 
 
 def main():
-    """Main entry point for the navigate_to_goal_server node."""
+    """Run the navigate_to_goal_server node."""
     rclpy.init()
 
     # Set up logging to be more verbose for debugging

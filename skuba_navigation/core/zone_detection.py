@@ -1,4 +1,5 @@
-"""Pure zone-accumulation + saved-position YAML logic for save_location.py.
+"""
+Pure zone-accumulation + saved-position YAML logic for save_location.py.
 
 No rclpy import.
 """
@@ -68,7 +69,8 @@ def yaw_for_side(current_yaw: float, side: str) -> float:
 def save_location_to_yaml(
     yaml_path, location_name, side, translation, orientation
 ) -> dict:
-    """Merge one named location into the saved_pose.yaml file and write it.
+    """
+    Merge one named location into the saved_pose.yaml file and write it.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples.
     Returns the data dict that was written.
