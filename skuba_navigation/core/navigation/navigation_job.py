@@ -1,4 +1,5 @@
-"""Send one target to Nav2 and see it through.
+"""
+Send one target to Nav2 and see it through.
 
 This is the one pipeline behind every Nav2-backed action:
 

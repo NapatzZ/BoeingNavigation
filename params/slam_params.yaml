@@ -13,8 +13,7 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_link
-    # Raw RPLIDAR scan. person_cluster_filter (/scan_slam) is not launched
-    # for mapping any more; point this back at /scan_slam to re-enable it.
+    # Raw scan; /scan_filtered is STVL's input instead.
     scan_topic: /scan
     use_map_saver: true
     mode: mapping

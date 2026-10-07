@@ -1,4 +1,5 @@
-"""Goal checks run in the goal callback, before a goal is accepted.
+"""
+Goal checks run in the goal callback, before a goal is accepted.
 
 Each function returns None when the goal is acceptable, else the reason it is
 rejected. A rejected goal never starts, so a behavior tree fails on the same

@@ -1,8 +1,10 @@
-"""Unit tests for MapSaver's path logic and success/failure combination.
+"""
+Unit tests for MapSaver's path logic and success/failure combination.
 
 No rclpy import in map_saver.py; the actual `ros2 run` / `ros2 service call`
 subprocess calls are monkeypatched out so this stays a pure unit test.
 """
+
 import os
 
 from skuba_navigation.core.map_saver import MapSaver
@@ -31,7 +33,9 @@ def test_default_maps_root_is_cwd_when_none_given():
     assert saver.save_directory == os.getcwd()
 
 
-def test_save_maps_reports_success_only_when_both_operations_succeed(tmp_path, monkeypatch):
+def test_save_maps_reports_success_only_when_both_operations_succeed(
+    tmp_path, monkeypatch
+):
     saver = MapSaver("m", "", str(tmp_path))
 
     monkeypatch.setattr(saver, "save_nav2_map", lambda: True)
@@ -65,4 +69,6 @@ def test_run_command_returns_false_on_subprocess_error(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", boom)
     saver = MapSaver("m")
-    assert saver.run_command(["ros2", "run", "nav2_map_server", "map_saver_cli"]) is False
+    assert (
+        saver.run_command(["ros2", "run", "nav2_map_server", "map_saver_cli"]) is False
+    )

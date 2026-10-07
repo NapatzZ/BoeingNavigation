@@ -1,4 +1,5 @@
 """Pure scan-filtering logic for filter_lidar.py. No rclpy import."""
+
 import copy
 import numpy as np
 
@@ -38,9 +39,8 @@ class LidarFilter:
                 filtered_msg.ranges[i] = np.inf
                 continue
             if self.enable_angle_filter:
-                in_front_sector = (
-                    (_ANGLE_START_1 <= angle <= _ANGLE_END_1) or
-                    (_ANGLE_START_2 <= angle <= _ANGLE_END_2)
+                in_front_sector = (_ANGLE_START_1 <= angle <= _ANGLE_END_1) or (
+                    _ANGLE_START_2 <= angle <= _ANGLE_END_2
                 )
                 if in_front_sector:
                     filtered_msg.ranges[i] = np.inf

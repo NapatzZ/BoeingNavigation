@@ -1,4 +1,5 @@
-"""Named locations persisted in saved_pose.yaml.
+"""
+Named locations persisted in saved_pose.yaml.
 
 File format (shared with the save_location node and pose_picker_web):
 

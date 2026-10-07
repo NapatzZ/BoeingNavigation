@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""navigation_server - SKUBA navigation actions on top of Nav2.
+"""
+navigation_server - SKUBA navigation actions on top of Nav2.
 
 ROS glue only. Each action is one row in `_action_specs()`: how to validate
 its goal and which core task runs it. The behaviour lives in
@@ -53,6 +54,7 @@ from ..core.navigation.config import MotionConfig, NavigationConfig
 from ..core.navigation.location_store import Location, LocationStore, resolve_locations_file
 from ..core.navigation.motion import BaseMotion
 from ..core.navigation.types import ErrorCode, TaskFailure, TaskResult
+from ..core.package_paths import find_package_source_dir
 
 NAMESPACE = '/skuba/nav'
 PACKAGE_NAME = 'skuba_navigation'
@@ -294,16 +296,19 @@ class NavigationServer(Node):
 
 
 def _default_locations_files():
-    """Where saved_pose.yaml is looked for when `locations_file` is not set.
+    """
+    Where saved_pose.yaml is looked for when `locations_file` is not set.
 
-    The source tree is preferred so saved locations survive `colcon build`;
-    the repo may be checked out as skuba_navigation or skuba-navigation.
+    The source checkout is preferred so saved locations survive `colcon build`
+    (same lookup as save_location: any folder name or nesting); the install
+    share is the fallback.
     """
     share = Path(get_package_share_directory(PACKAGE_NAME))
-    src = share.parents[3] / 'src'
-    return [src / 'skuba_navigation' / 'share' / 'saved_pose.yaml',
-            src / 'skuba-navigation' / 'share' / 'saved_pose.yaml',
-            share / 'saved_pose.yaml']
+    source_dir = find_package_source_dir(share, PACKAGE_NAME)
+    candidates = [share / 'saved_pose.yaml']
+    if source_dir is not None:
+        candidates.insert(0, source_dir / 'share' / 'saved_pose.yaml')
+    return candidates
 
 
 def _raise_keyboard_interrupt(_signum, _frame):

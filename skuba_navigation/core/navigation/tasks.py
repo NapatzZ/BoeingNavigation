@@ -1,4 +1,5 @@
-"""One function per action - read this file to know what each action does.
+"""
+One function per action - read this file to know what each action does.
 
 Every task gets a TaskContext (ports + config + this goal's cancel token and
 feedback sink), takes plain Python goal values and returns a TaskResult. A

@@ -1,4 +1,5 @@
-"""Tunables for navigation_server.
+"""
+Tunables for navigation_server.
 
 Every field is declared as a ROS parameter named `<section>.<field>` (see
 params/navigation_server.yaml), so adding a field here is all it takes to

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 import threading
+import time
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
+from rclpy.qos import (
+    QoSProfile,
+    QoSReliabilityPolicy,
+    QoSHistoryPolicy,
+    QoSDurabilityPolicy,
+)
 from std_msgs.msg import Bool
 from kobuki_ros_interfaces.msg import DigitalInputEvent
 from ..core.estop_latch import EstopLatch
@@ -11,6 +17,8 @@ from ..core.estop_latch import EstopLatch
 
 class EmergencyStopNode(Node):
     """
+    Latch the e-stop from /events/digital_input.
+
     Listens to /events/digital_input (kobuki_ros_interfaces/DigitalInputEvent).
     When pin 0 goes True (e-stop pressed):
       - Latches permanently (never releases, even if pin returns to False).
@@ -26,13 +34,14 @@ class EmergencyStopNode(Node):
     Parameters
     ----------
     lock_topic: str - twist_mux lock topic to raise. Default 'e_stop'.
+
     """
 
     def __init__(self):
-        super().__init__('emergency_stop')
+        super().__init__("emergency_stop")
 
-        self.declare_parameter('lock_topic', 'e_stop')
-        lock_topic: str = self.get_parameter('lock_topic').value
+        self.declare_parameter("lock_topic", "e_stop")
+        lock_topic: str = self.get_parameter("lock_topic").value
 
         self._latch = EstopLatch()
         self._shutdown = False
@@ -59,7 +68,7 @@ class EmergencyStopNode(Node):
 
         self._sub = self.create_subscription(
             DigitalInputEvent,
-            '/events/digital_input',
+            "/events/digital_input",
             self._digital_input_cb,
             input_qos,
         )
@@ -69,7 +78,7 @@ class EmergencyStopNode(Node):
         self._pub_thread.start()
 
         self.get_logger().info(
-            f'[EmergencyStop] Ready. Listening on /events/digital_input pin[0]. '
+            f"[EmergencyStop] Ready. Listening on /events/digital_input pin[0]. "
             f'Will latch permanently and raise the twist_mux lock "{lock_topic}".'
         )
 
@@ -77,13 +86,19 @@ class EmergencyStopNode(Node):
     def _digital_input_cb(self, msg: DigitalInputEvent) -> None:
         if msg.values[0] and self._latch.trigger():
             self._lock_pub.publish(Bool(data=True))  # raise lock immediately
-            self.get_logger().warn('[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised.')
+            self.get_logger().warn(
+                "[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised."
+            )
 
     # ------------------------------------------------------------------
     def _publish_loop(self) -> None:
+        # 10 Hz: without a sleep this loop pinned a whole CPU core, all the
+        # time (and flooded e_stop once latched). twist_mux's e_stop lock has
+        # no timeout, so the rate only needs to cover late subscribers.
         while not self._shutdown:
             if self._latch.is_active:
                 self._lock_pub.publish(Bool(data=True))
+            time.sleep(0.1)
 
     # ------------------------------------------------------------------
     def destroy_node(self) -> None:
@@ -111,5 +126,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

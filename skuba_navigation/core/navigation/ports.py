@@ -1,4 +1,5 @@
-"""What the navigation core needs from the outside world.
+"""
+What the navigation core needs from the outside world.
 
 The adapters/ package implements these on rclpy (Nav2 action clients, tf2,
 a cmd_vel publisher); tests implement them with in-memory fakes. Core code
@@ -32,7 +33,8 @@ class Nav2Port(Protocol):
     def navigate(self, goal: Pose2D, frame_id: str, behavior_tree: str,
                  on_feedback: Callable[[Nav2Feedback], None],
                  should_stop: Callable[[], bool]) -> Nav2Status:
-        """Send one NavigateToPose goal and block until it ends.
+        """
+        Send one NavigateToPose goal and block until it ends.
 
         If should_stop() turns true, cancel the Nav2 goal, wait for it to
         wind down, and return CANCELED.

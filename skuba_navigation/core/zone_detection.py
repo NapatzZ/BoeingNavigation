@@ -1,7 +1,9 @@
-"""Pure zone-accumulation + saved-position YAML logic for save_location.py.
+"""
+Pure zone-accumulation + saved-position YAML logic for save_location.py.
 
 No rclpy import.
 """
+
 import math
 import os
 from collections import defaultdict
@@ -12,17 +14,17 @@ import yaml
 from .geometry_utils import SIDE_OFFSETS
 
 ZONES = {
-    "FRONT":       0.0,
-    "FRONT_LEFT":  45.0,
-    "LEFT":        90.0,
-    "BACK_LEFT":   135.0,
-    "BACK":        180.0,
-    "BACK_RIGHT":  225.0,
-    "RIGHT":       270.0,
+    "FRONT": 0.0,
+    "FRONT_LEFT": 45.0,
+    "LEFT": 90.0,
+    "BACK_LEFT": 135.0,
+    "BACK": 180.0,
+    "BACK_RIGHT": 225.0,
+    "RIGHT": 270.0,
     "FRONT_RIGHT": 315.0,
 }
 HALF_WIDTH_DEG = 25.0
-OBSTACLE_RANGE = 1.0   # m
+OBSTACLE_RANGE = 1.0  # m
 
 
 def accumulate_zone_hits(msg, zone_accumulator: dict) -> None:
@@ -41,9 +43,9 @@ def accumulate_zone_hits(msg, zone_accumulator: dict) -> None:
         zone_idx = np.where(np.abs(diff) <= half_rad)[0]
 
         zone_ranges = ranges[zone_idx]
-        hits = int(np.sum(
-            (zone_ranges >= msg.range_min) & (zone_ranges <= OBSTACLE_RANGE)
-        ))
+        hits = int(
+            np.sum((zone_ranges >= msg.range_min) & (zone_ranges <= OBSTACLE_RANGE))
+        )
         zone_accumulator[side] += hits
 
 
@@ -64,8 +66,11 @@ def yaw_for_side(current_yaw: float, side: str) -> float:
     return current_yaw + SIDE_OFFSETS.get(side, 0.0)
 
 
-def save_location_to_yaml(yaml_path, location_name, side, translation, orientation) -> dict:
-    """Merge one named location into the saved_pose.yaml file and write it.
+def save_location_to_yaml(
+    yaml_path, location_name, side, translation, orientation
+) -> dict:
+    """
+    Merge one named location into the saved_pose.yaml file and write it.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples.
     Returns the data dict that was written.
@@ -73,7 +78,7 @@ def save_location_to_yaml(yaml_path, location_name, side, translation, orientati
     data = {"positions": {}}
     if yaml_path.exists():
         try:
-            with open(yaml_path, 'r') as f:
+            with open(yaml_path, "r") as f:
                 loaded = yaml.safe_load(f)
                 if loaded and "positions" in loaded:
                     data = loaded
@@ -94,7 +99,7 @@ def save_location_to_yaml(yaml_path, location_name, side, translation, orientati
     }
 
     os.makedirs(yaml_path.parent, exist_ok=True)
-    with open(yaml_path, 'w') as f:
+    with open(yaml_path, "w") as f:
         yaml.safe_dump(data, f, default_flow_style=False)
 
     return data

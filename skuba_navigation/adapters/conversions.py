@@ -42,7 +42,8 @@ def progress_msg(progress: Progress, frame_id: str, stamp: Time) -> NavigationPr
 
 
 def fill(msg: Any, values: Dict[str, Any], frame_id: str, stamp: Time) -> Any:
-    """Copy `values` onto same-named fields of `msg`, converting core types.
+    """
+    Copy `values` onto same-named fields of `msg`, converting core types.
 
     Unknown keys are ignored, so a task can report a field that only some
     actions define (e.g. 'final_distance').

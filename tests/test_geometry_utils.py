@@ -1,8 +1,10 @@
-"""Unit tests for the pure geometry helpers.
+"""
+Unit tests for the pure geometry helpers.
 
 These are pure math with no ROS state, so they run without a robot or a
 running graph - which is the whole point of keeping them in geometry_utils.
 """
+
 import math
 
 import pytest
@@ -42,12 +44,15 @@ def test_eight_sides_are_defined_45_degrees_apart():
         assert (upper - lower) == pytest.approx(math.pi / 4.0)
 
 
-@pytest.mark.parametrize("side,expected_xy", [
-    ("FRONT", (1.0, 0.0)),
-    ("LEFT", (0.0, 1.0)),
-    ("BACK", (-1.0, 0.0)),
-    ("RIGHT", (0.0, -1.0)),
-])
+@pytest.mark.parametrize(
+    "side,expected_xy",
+    [
+        ("FRONT", (1.0, 0.0)),
+        ("LEFT", (0.0, 1.0)),
+        ("BACK", (-1.0, 0.0)),
+        ("RIGHT", (0.0, -1.0)),
+    ],
+)
 def test_map_relative_sides_land_on_the_expected_axis(side, expected_xy):
     """With reference_yaw=0 the sides are map directions: FRONT = map +X."""
     x, y, _ = approach_pose_for_side(0.0, 0.0, 0.0, side, 1.0)

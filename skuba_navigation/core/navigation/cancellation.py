@@ -1,4 +1,5 @@
-"""Goal lifecycle primitives: cancellation and the single-goal arbiter.
+"""
+Goal lifecycle primitives: cancellation and the single-goal arbiter.
 
 Every base-motion goal (Nav2 or cmd_vel) owns one CancelToken. The
 GoalArbiter guarantees only one goal drives the base at a time: a new goal
@@ -64,7 +65,8 @@ class GoalArbiter:
         self._handover_timeout = handover_timeout
 
     def acquire(self, token: CancelToken) -> None:
-        """Make `token` the active goal, stopping the previous one first.
+        """
+        Make `token` the active goal, stopping the previous one first.
 
         Raises TaskFailure if `token` itself gets preempted while waiting, or
         if the previous goal does not stop within the hand-over timeout.

@@ -1,4 +1,5 @@
-"""BaseCommander on a Twist publisher.
+"""
+BaseCommander on a Twist publisher.
 
 Publishes on the manual twist_mux lane (cmd_vel_nav_manual by default, see
 params/twist_mux.yaml), not on Nav2's cmd_vel_nav, so it never mixes with

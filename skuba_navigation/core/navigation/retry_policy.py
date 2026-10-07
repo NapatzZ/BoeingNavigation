@@ -13,7 +13,8 @@ class RetryDecision:
 
 
 def decide(status: Nav2Status, attempt: int, max_retries: int) -> RetryDecision:
-    """Only an ABORTED attempt is worth retrying.
+    """
+    Only an ABORTED attempt is worth retrying.
 
     A rejection or an unreachable server will not fix itself in a second, and
     a cancel is a decision someone made - retrying it would override them

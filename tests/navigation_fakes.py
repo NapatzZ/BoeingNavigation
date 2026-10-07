@@ -1,4 +1,5 @@
-"""In-memory fakes of the navigation ports, driven by a simulated clock.
+"""
+In-memory fakes of the navigation ports, driven by a simulated clock.
 
 SimRobot is both the PoseSource and the BaseCommander: velocity commands are
 integrated every time FakeClock.sleep() advances time, so the closed-loop
@@ -82,7 +83,8 @@ class SimRobot:
 
 
 class FakeNav2:
-    """Scripted Nav2.
+    """
+    Scripted Nav2.
 
     `script` holds one entry per attempt: a Nav2Status to return right away,
     'arrive' (teleport to the goal, SUCCEEDED), 'abort_but_arrive' (teleport,

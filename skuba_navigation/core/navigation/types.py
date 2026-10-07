@@ -74,7 +74,8 @@ class TaskFailure(Exception):
 
 @dataclass
 class TaskResult:
-    """What a task returns to the node.
+    """
+    What a task returns to the node.
 
     `fields` are copied onto the action Result by name (e.g. 'attempts',
     'final_pose'), so a task only reports what its action defines.

@@ -1,4 +1,5 @@
-"""Logic behind navigation_server. No rclpy / ROS message imports.
+"""
+Logic behind navigation_server. No rclpy / ROS message imports.
 
 Layering (see README "navigation_server"):
 

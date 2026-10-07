@@ -52,7 +52,7 @@ ros2 run skuba_navigation map_save_cli        # interactive save helper
 
 It runs `slam_toolbox`'s own `online_async_launch.py` (with
 `params/slam_params.yaml` as `slam_params_file` — `mode: mapping`,
-loop closure on, consuming the raw `/scan`), nav2's `navigation_launch.py` (with
+loop closure on, consuming `/scan`), nav2's `navigation_launch.py` (with
 `params/nav2_params.yaml` as `params_file`), and RViz. It also brings up `filter_lidar`,
 `emergency_stop`, and `twist_mux` directly (unlike the two task launches,
 which get these via `nav2_bringup_launch.py`), so teleop driving during a
@@ -72,8 +72,9 @@ no edits.
 Not meant to be run directly, but they are valid standalone launches:
 
 - `nav2_bringup_launch.py` — nav2 core (localization + navigation), plus
-  `emergency_stop`, `filter_lidar`, `twist_mux`, and the `base_link -> laser`
-  static transform. Included by both task launches. `use_localization:=False`
+  `emergency_stop`, `filter_lidar`, `twist_mux`, and the measured `base_link -> laser`
+  static transform (`publish_laser_tf`, default `true` until skuba_description's
+  `laser_joint` is corrected). Included by both task launches. `use_localization:=False`
   skips AMCL (used by `nav2_slam_bringup_launch.py`'s mapping stack, which
   runs SLAM Toolbox instead of AMCL for `map -> odom`, and brings up
   `filter_lidar`/`emergency_stop`/`twist_mux` itself instead of going through
@@ -92,7 +93,6 @@ Executables registered in `setup.py`:
 | `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
 | `emergency_stop` | Publishes the twist_mux e-stop lock |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
-| `person_cluster_filter` | Strips person-sized LiDAR clusters into `/scan_slam` (not launched by default) |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
 
 `cmd_vel` arbitration is handled by `twist_mux` (`params/twist_mux.yaml`): joy,

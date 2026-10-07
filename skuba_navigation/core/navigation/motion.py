@@ -1,4 +1,5 @@
-"""Closed-loop base motions on raw cmd_vel (no Nav2, no collision checking).
+"""
+Closed-loop base motions on raw cmd_vel (no Nav2, no collision checking).
 
 Every loop here:
   * checks cancel and the deadline on each tick,
@@ -25,7 +26,8 @@ _SNAPSHOT_TIMEOUT = 1.0
 
 
 def rotation_command(error: float, error_rate: float, config: MotionConfig) -> float:
-    """PD law for in-place rotation. Returns a signed angular speed (rad/s).
+    """
+    PD law for in-place rotation. Returns a signed angular speed (rad/s).
 
     `error` is the signed remaining angle, `error_rate` the rate of change of
     |error| (negative while closing in), so the D term brakes symmetrically in
@@ -111,7 +113,8 @@ class BaseMotion:
 
     def drive_straight(self, distance: float, speed: float, token: CancelToken,
                        deadline: Deadline, on_progress: ProgressCallback = None) -> float:
-        """Drive `distance` m along the current heading (negative = backward).
+        """
+        Drive `distance` m along the current heading (negative = backward).
 
         Progress is measured as the projection onto the starting heading, so
         the returned distance is signed and sideways drift does not count.

@@ -1,4 +1,5 @@
-"""Where to park next to a target frame, and whether we parked correctly.
+"""
+Where to park next to a target frame, and whether we parked correctly.
 
 Two modes, chosen by `side`:
 

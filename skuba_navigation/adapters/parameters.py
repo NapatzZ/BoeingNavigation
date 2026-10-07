@@ -10,7 +10,8 @@ _SCALARS = (bool, int, float)
 
 
 def declare_dataclass(node: Node, prefix: str, cls: Type[T]) -> T:
-    """Declare every field of `cls` (default = field default) and build an instance.
+    """
+    Declare every field of `cls` (default = field default) and build an instance.
 
     dynamic_typing lets a YAML `2` feed a float field (and vice versa); the
     value is then cast to the field's declared type.
