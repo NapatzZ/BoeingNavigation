@@ -52,11 +52,8 @@ ros2 run skuba_navigation map_save_cli        # interactive save helper
 
 It runs `slam_toolbox`'s own `online_async_launch.py` (with
 `params/slam_params.yaml` as `slam_params_file` — `mode: mapping`,
-loop closure on, consuming `/scan_slam`), nav2's `navigation_launch.py` (with
-`params/nav2_params.yaml` as `params_file`), RViz, and
-`person_cluster_filter` — which strips person-sized LiDAR clusters from `/scan`
-and republishes the result as `/scan_slam`, so people walking past are not
-baked into the occupancy grid. It also brings up `filter_lidar`,
+loop closure on, consuming the raw `/scan`), nav2's `navigation_launch.py` (with
+`params/nav2_params.yaml` as `params_file`), and RViz. It also brings up `filter_lidar`,
 `emergency_stop`, and `twist_mux` directly (unlike the two task launches,
 which get these via `nav2_bringup_launch.py`), so teleop driving during a
 mapping session reaches the robot through the same `cmd_vel` arbitration and
@@ -95,7 +92,7 @@ Executables registered in `setup.py`:
 | `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
 | `emergency_stop` | Publishes the twist_mux e-stop lock |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
-| `person_cluster_filter` | Strips person-sized LiDAR clusters before SLAM (mapping only) |
+| `person_cluster_filter` | Strips person-sized LiDAR clusters into `/scan_slam` (not launched by default) |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
 
 `cmd_vel` arbitration is handled by `twist_mux` (`params/twist_mux.yaml`): joy,

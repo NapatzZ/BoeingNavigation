@@ -173,16 +173,6 @@ def generate_launch_description():
                     os.path.join(launch_dir, 'rviz_launch.py')
                 ),
             ),
-            # Person cluster filter: removes person-sized LiDAR clusters from
-            # /scan before SLAM Toolbox so walking people are not baked
-            # into the occupancy map.
-            # Subscribes: /scan (BEST_EFFORT)  →  Publishes: /scan_slam (RELIABLE)
-            Node(
-                package='skuba_navigation',
-                executable='person_cluster_filter',
-                name='person_cluster_filter',
-                output='screen',
-            ),
             Node(
                 package='tf2_ros',
                 executable='static_transform_publisher',
