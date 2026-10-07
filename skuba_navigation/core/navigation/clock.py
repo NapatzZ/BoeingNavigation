@@ -1,4 +1,5 @@
 """Injectable time: real monotonic time in the node, simulated time in tests."""
+
 import time
 from typing import Optional
 

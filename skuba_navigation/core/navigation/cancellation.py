@@ -6,14 +6,15 @@ GoalArbiter guarantees only one goal drives the base at a time: a new goal
 cancels the running one with PREEMPTED and waits until it has actually stopped
 before it starts, so two controllers never command the base together.
 """
+
 import threading
 from typing import Optional
 
 from .types import ErrorCode, TaskFailure
 
 _STOP_MESSAGES = {
-    ErrorCode.CANCELED: 'Goal canceled.',
-    ErrorCode.PREEMPTED: 'Goal preempted by a newer base-motion goal.',
+    ErrorCode.CANCELED: "Goal canceled.",
+    ErrorCode.PREEMPTED: "Goal preempted by a newer base-motion goal.",
 }
 
 
@@ -47,7 +48,9 @@ class CancelToken:
 
     def raise_if_cancelled(self) -> None:
         if self.cancelled:
-            raise TaskFailure(self._reason, _STOP_MESSAGES.get(self._reason, 'Goal stopped.'))
+            raise TaskFailure(
+                self._reason, _STOP_MESSAGES.get(self._reason, "Goal stopped.")
+            )
 
     def mark_finished(self) -> None:
         self._finished.set()
@@ -78,7 +81,8 @@ class GoalArbiter:
             if not previous.wait_finished(self._handover_timeout):
                 raise TaskFailure(
                     ErrorCode.UNKNOWN,
-                    f'Previous goal did not stop within {self._handover_timeout:.1f}s.')
+                    f"Previous goal did not stop within {self._handover_timeout:.1f}s.",
+                )
         token.raise_if_cancelled()
 
     def release(self, token: CancelToken) -> None:

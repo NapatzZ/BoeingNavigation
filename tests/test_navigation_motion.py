@@ -1,4 +1,5 @@
 """Closed-loop motions against the simulated robot."""
+
 import math
 
 import pytest
@@ -42,32 +43,38 @@ def test_rotation_damping_is_symmetric():
 
 def test_yaw_tracker_accumulates_across_wrap():
     tracker = YawTracker(0.0)
-    for step in range(1, 28):   # 27 x 10 deg = 270 deg
+    for step in range(1, 28):  # 27 x 10 deg = 270 deg
         tracker.update(math.radians((10 * step + 180) % 360 - 180))
     assert math.degrees(tracker.turned) == pytest.approx(270.0)
 
 
-@pytest.mark.parametrize('angle_deg', [90.0, -45.0, 270.0])
+@pytest.mark.parametrize("angle_deg", [90.0, -45.0, 270.0])
 def test_rotate_by_reaches_the_angle(angle_deg):
     h = Harness()
-    achieved = h.motion.rotate_by(math.radians(angle_deg), math.radians(2.0), h.token, deadline(h))
+    achieved = h.motion.rotate_by(
+        math.radians(angle_deg), math.radians(2.0), h.token, deadline(h)
+    )
     assert math.degrees(achieved) == pytest.approx(angle_deg, abs=2.5)
     assert not h.robot.moving and h.robot.stops >= 1
 
 
 def test_turn_to_heading_takes_the_short_way():
     h = Harness(start=Pose2D(0.0, 0.0, math.radians(170)))
-    error = h.motion.turn_to_heading(math.radians(-170), math.radians(2.0), h.token, deadline(h))
+    error = h.motion.turn_to_heading(
+        math.radians(-170), math.radians(2.0), h.token, deadline(h)
+    )
     assert abs(error) < math.radians(2.5)
-    assert h.clock.now() < 5.0   # 20 deg, not 340
+    assert h.clock.now() < 5.0  # 20 deg, not 340
 
 
-@pytest.mark.parametrize('distance', [1.0, -0.5])
+@pytest.mark.parametrize("distance", [1.0, -0.5])
 def test_drive_straight_reaches_signed_distance(distance):
     h = Harness(start=Pose2D(1.0, 1.0, math.radians(90)))
     achieved = h.motion.drive_straight(distance, 0.2, h.token, deadline(h))
     assert achieved == pytest.approx(distance, abs=CFG.drive_verify_tolerance)
-    assert h.robot.pose.y == pytest.approx(1.0 + distance, abs=CFG.drive_verify_tolerance)
+    assert h.robot.pose.y == pytest.approx(
+        1.0 + distance, abs=CFG.drive_verify_tolerance
+    )
     assert not h.robot.moving
 
 
@@ -90,7 +97,7 @@ def test_deadline_stops_the_base():
 
 def test_long_tf_dropout_fails_instead_of_driving_blind():
     h = Harness()
-    h.clock.listeners.append(lambda dt: setattr(h.robot, 'tf_down', h.clock.t > 0.5))
+    h.clock.listeners.append(lambda dt: setattr(h.robot, "tf_down", h.clock.t > 0.5))
     with pytest.raises(TaskFailure) as failure:
         h.motion.drive_straight(2.0, 0.2, h.token, deadline(h))
     assert failure.value.code == ErrorCode.TF_LOOKUP_FAILED
@@ -99,6 +106,8 @@ def test_long_tf_dropout_fails_instead_of_driving_blind():
 
 def test_short_tf_dropout_is_tolerated():
     h = Harness()
-    h.clock.listeners.append(lambda dt: setattr(h.robot, 'tf_down', 0.5 < h.clock.t < 0.7))
+    h.clock.listeners.append(
+        lambda dt: setattr(h.robot, "tf_down", 0.5 < h.clock.t < 0.7)
+    )
     achieved = h.motion.drive_straight(0.5, 0.2, h.token, deadline(h))
     assert achieved == pytest.approx(0.5, abs=CFG.drive_verify_tolerance)

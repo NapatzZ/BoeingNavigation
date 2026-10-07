@@ -1,4 +1,5 @@
 """PoseSource on tf2."""
+
 from typing import Optional, Tuple
 
 from rclpy.duration import Duration
@@ -11,9 +12,9 @@ from ..core.navigation.types import ErrorCode, Pose2D, TaskFailure
 
 
 class TfPoseSource:
-
-    def __init__(self, node: Node, map_frame: str, robot_frame: str,
-                 default_timeout: float = 1.0):
+    def __init__(
+        self, node: Node, map_frame: str, robot_frame: str, default_timeout: float = 1.0
+    ):
         self._map_frame = map_frame
         self._robot_frame = robot_frame
         self._default_timeout = default_timeout
@@ -26,7 +27,9 @@ class TfPoseSource:
         t = self._lookup(self._robot_frame, timeout)
         return Pose2D(t.translation.x, t.translation.y, quaternion_to_yaw(t.rotation))
 
-    def frame_position(self, frame: str, timeout: Optional[float] = None) -> Tuple[float, float]:
+    def frame_position(
+        self, frame: str, timeout: Optional[float] = None
+    ) -> Tuple[float, float]:
         t = self._lookup(frame, timeout)
         return t.translation.x, t.translation.y
 
@@ -34,7 +37,10 @@ class TfPoseSource:
         seconds = self._default_timeout if timeout is None else timeout
         try:
             return self._buffer.lookup_transform(
-                self._map_frame, frame, Time(), Duration(seconds=seconds)).transform
+                self._map_frame, frame, Time(), Duration(seconds=seconds)
+            ).transform
         except TransformException as e:
-            raise TaskFailure(ErrorCode.TF_LOOKUP_FAILED,
-                              f'No transform {self._map_frame} -> {frame}: {e}') from e
+            raise TaskFailure(
+                ErrorCode.TF_LOOKUP_FAILED,
+                f"No transform {self._map_frame} -> {frame}: {e}",
+            ) from e

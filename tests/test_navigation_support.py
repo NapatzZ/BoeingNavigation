@@ -1,4 +1,5 @@
 """Cancellation/arbiter, standoff geometry, location store, goal validation."""
+
 import math
 import os
 import threading
@@ -13,7 +14,11 @@ from skuba_navigation.core.navigation.location_store import (
     LocationStore,
     resolve_locations_file,
 )
-from skuba_navigation.core.navigation.standoff import parse_side, standoff_goal, verify_standoff
+from skuba_navigation.core.navigation.standoff import (
+    parse_side,
+    standoff_goal,
+    verify_standoff,
+)
 from skuba_navigation.core.navigation.types import ErrorCode, Pose2D, TaskFailure
 
 # ── cancellation ──────────────────────────────────────────────────────────
@@ -37,7 +42,7 @@ def test_arbiter_preempts_and_waits_for_handover():
     thread.start()
     time.sleep(0.1)
     assert first.reason == ErrorCode.PREEMPTED
-    assert not started.is_set()         # waits until the old goal has stopped
+    assert not started.is_set()  # waits until the old goal has stopped
     arbiter.release(first)
     thread.join(1.0)
     assert started.is_set()
@@ -59,10 +64,10 @@ def test_arbiter_idle_cancel():
 
 
 def test_parse_side():
-    assert parse_side('') is None and parse_side(' auto ') is None
-    assert parse_side('front_left') == 'FRONT_LEFT'
+    assert parse_side("") is None and parse_side(" auto ") is None
+    assert parse_side("front_left") == "FRONT_LEFT"
     with pytest.raises(ValueError):
-        parse_side('UP')
+        parse_side("UP")
 
 
 def test_auto_standoff_goal_is_on_the_robot_line():
@@ -72,26 +77,30 @@ def test_auto_standoff_goal_is_on_the_robot_line():
 
 
 def test_named_side_goal_faces_target():
-    goal = standoff_goal(Pose2D(0, 0, 0), 1.0, 1.0, 0.5, 'FRONT', 0.3, 0.15, 0.1)
+    goal = standoff_goal(Pose2D(0, 0, 0), 1.0, 1.0, 0.5, "FRONT", 0.3, 0.15, 0.1)
     assert (goal.x, goal.y, goal.yaw) == pytest.approx((1.8, 1.0, math.pi))
 
 
 def test_already_parked_returns_none():
     assert standoff_goal(Pose2D(0.5, 0, 0), 1.0, 0.0, 1.0, None, 0.0, 0.15, 0.1) is None
     parked = Pose2D(2.0, 0.0, math.pi)
-    assert standoff_goal(parked, 1.0, 0.0, 1.0, 'FRONT', 0.0, 0.15, 0.1) is None
+    assert standoff_goal(parked, 1.0, 0.0, 1.0, "FRONT", 0.0, 0.15, 0.1) is None
     # Inside stop_distance but on the wrong side is NOT parked.
-    assert standoff_goal(Pose2D(0.0, 0, 0), 1.0, 0.0, 1.0, 'FRONT', 0.0, 0.15, 0.1)
+    assert standoff_goal(Pose2D(0.0, 0, 0), 1.0, 0.0, 1.0, "FRONT", 0.0, 0.15, 0.1)
 
 
-@pytest.mark.parametrize('pose, ok, word', [
-    (Pose2D(1.0, 0.0), True, 'Parked'),
-    (Pose2D(3.0, 0.0), False, 'distance'),
-    (Pose2D(0.0, 1.0), False, 'side'),
-])
+@pytest.mark.parametrize(
+    "pose, ok, word",
+    [
+        (Pose2D(1.0, 0.0), True, "Parked"),
+        (Pose2D(3.0, 0.0), False, "distance"),
+        (Pose2D(0.0, 1.0), False, "side"),
+    ],
+)
 def test_verify_named_side(pose, ok, word):
     result, _distance, message = verify_standoff(
-        pose, 0.0, 0.0, 1.0, 'FRONT', 0.0, 0.15, math.radians(22.5))
+        pose, 0.0, 0.0, 1.0, "FRONT", 0.0, 0.15, math.radians(22.5)
+    )
     assert result is ok and word in message
 
 
@@ -104,44 +113,48 @@ def test_verify_auto():
 
 
 def test_location_roundtrip_and_merge_keeps_other_entries(tmp_path):
-    path = tmp_path / 'saved_pose.yaml'
-    path.write_text('positions:\n  door:\n    header: {frame_id: map, side: LEFT}\n'
-                    '    pose:\n      position: {x: 1, y: 2, z: 0}\n'
-                    '      orientation: {x: 0, y: 0, z: 0, w: 1}\n')
+    path = tmp_path / "saved_pose.yaml"
+    path.write_text(
+        "positions:\n  door:\n    header: {frame_id: map, side: LEFT}\n"
+        "    pose:\n      position: {x: 1, y: 2, z: 0}\n"
+        "      orientation: {x: 0, y: 0, z: 0, w: 1}\n"
+    )
     store = LocationStore(path)
-    store.save('home', Location('map', Pose2D(0.5, -0.5, math.pi / 2)))
-    assert store.names() == ['door', 'home']
-    assert store.get('home').pose.yaw == pytest.approx(math.pi / 2)
-    assert 'side: LEFT' in path.read_text()
+    store.save("home", Location("map", Pose2D(0.5, -0.5, math.pi / 2)))
+    assert store.names() == ["door", "home"]
+    assert store.get("home").pose.yaw == pytest.approx(math.pi / 2)
+    assert "side: LEFT" in path.read_text()
 
 
 def test_location_store_sees_external_edits(tmp_path):
-    path = tmp_path / 'saved_pose.yaml'
+    path = tmp_path / "saved_pose.yaml"
     store = LocationStore(path)
-    assert store.get('x') is None
-    store.save('a', Location('map', Pose2D(0, 0)))
+    assert store.get("x") is None
+    store.save("a", Location("map", Pose2D(0, 0)))
     other = LocationStore(path)
-    other.save('b', Location('map', Pose2D(1, 1)))
+    other.save("b", Location("map", Pose2D(1, 1)))
     os.utime(path, (time.time() + 5, time.time() + 5))  # make sure mtime moves
-    assert store.get('b') is not None
+    assert store.get("b") is not None
 
 
 def test_location_store_rejects_empty_name_and_missing_reload(tmp_path):
-    store = LocationStore(tmp_path / 'missing.yaml')
+    store = LocationStore(tmp_path / "missing.yaml")
     with pytest.raises(ValueError):
-        store.save('  ', Location('map', Pose2D(0, 0)))
+        store.save("  ", Location("map", Pose2D(0, 0)))
     with pytest.raises(FileNotFoundError):
         store.reload()
 
 
 def test_resolve_locations_file(tmp_path):
-    existing = tmp_path / 'a' / 'saved_pose.yaml'
+    existing = tmp_path / "a" / "saved_pose.yaml"
     existing.parent.mkdir()
-    fallback = tmp_path / 'share' / 'saved_pose.yaml'
-    missing = tmp_path / 'nope' / 'saved_pose.yaml'
-    assert resolve_locations_file('/x/y.yaml', [existing]) == type(existing)('/x/y.yaml')
-    assert resolve_locations_file('', [missing, existing, fallback]) == existing
-    assert resolve_locations_file('', [missing, fallback]) == fallback
+    fallback = tmp_path / "share" / "saved_pose.yaml"
+    missing = tmp_path / "nope" / "saved_pose.yaml"
+    assert resolve_locations_file("/x/y.yaml", [existing]) == type(existing)(
+        "/x/y.yaml"
+    )
+    assert resolve_locations_file("", [missing, existing, fallback]) == existing
+    assert resolve_locations_file("", [missing, fallback]) == fallback
 
 
 # ── validation ────────────────────────────────────────────────────────────
@@ -150,14 +163,14 @@ def test_resolve_locations_file(tmp_path):
 def test_validation():
     assert validation.check_go_to_pose(0, 0, 0, 0, 0, 1) is None
     assert validation.check_go_to_pose(0, 0, 0, 0, 0, 0)
-    assert validation.check_go_to_pose(float('nan'), 0, 0, 0, 0, 1)
-    assert validation.check_go_to_location('kitchen', True) is None
-    assert 'not in' in validation.check_go_to_location('kitchen', False)
-    assert validation.check_go_to_frame('cup', 0.5, 'LEFT', 0.1) is None
-    assert 'approach_side' in validation.check_go_to_frame('cup', 0.5, 'UP', 0.1)
-    assert validation.check_go_to_frame('cup', -1.0, '', 0.0)
-    assert validation.check_nudge('', 0.5)
-    assert validation.check_drive(float('inf'), 0.0)
+    assert validation.check_go_to_pose(float("nan"), 0, 0, 0, 0, 1)
+    assert validation.check_go_to_location("kitchen", True) is None
+    assert "not in" in validation.check_go_to_location("kitchen", False)
+    assert validation.check_go_to_frame("cup", 0.5, "LEFT", 0.1) is None
+    assert "approach_side" in validation.check_go_to_frame("cup", 0.5, "UP", 0.1)
+    assert validation.check_go_to_frame("cup", -1.0, "", 0.0)
+    assert validation.check_nudge("", 0.5)
+    assert validation.check_drive(float("inf"), 0.0)
     assert validation.check_rotate(90.0, 0.0) is None
 
 
@@ -172,8 +185,10 @@ def test_params_file_matches_config_defaults():
 
     from skuba_navigation.core.navigation.config import MotionConfig, NavigationConfig
 
-    path = Path(__file__).resolve().parent.parent / 'params' / 'navigation_server.yaml'
-    params = yaml.safe_load(path.read_text())['navigation_server']['ros__parameters']
-    for section, cls in (('navigation', NavigationConfig), ('motion', MotionConfig)):
+    path = Path(__file__).resolve().parent.parent / "params" / "navigation_server.yaml"
+    params = yaml.safe_load(path.read_text())["navigation_server"]["ros__parameters"]
+    for section, cls in (("navigation", NavigationConfig), ("motion", MotionConfig)):
         defaults = {f.name: f.default for f in dataclasses.fields(cls)}
-        assert params[section] == defaults, f'params/{path.name} [{section}] out of sync'
+        assert (
+            params[section] == defaults
+        ), f"params/{path.name} [{section}] out of sync"

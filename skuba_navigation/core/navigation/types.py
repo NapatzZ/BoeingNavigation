@@ -1,4 +1,5 @@
 """Plain data types shared across the navigation core."""
+
 from dataclasses import dataclass, field
 import enum
 import math
@@ -82,7 +83,7 @@ class TaskResult:
     """
 
     code: ErrorCode = ErrorCode.NONE
-    message: str = ''
+    message: str = ""
     fields: Dict[str, Any] = field(default_factory=dict)
 
     @property

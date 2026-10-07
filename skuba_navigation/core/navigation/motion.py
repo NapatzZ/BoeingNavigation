@@ -9,6 +9,7 @@ Every loop here:
   * returns what was measured after stopping, so callers verify the result
     instead of assuming it.
 """
+
 import math
 from typing import Callable, Optional
 
@@ -64,15 +65,22 @@ class YawTracker:
 class BaseMotion:
     """Rotate / drive-straight controllers on top of the ports."""
 
-    def __init__(self, poses: PoseSource, base: BaseCommander, config: MotionConfig,
-                 clock: Clock):
+    def __init__(
+        self, poses: PoseSource, base: BaseCommander, config: MotionConfig, clock: Clock
+    ):
         self._poses = poses
         self._base = base
         self._config = config
         self._clock = clock
 
-    def rotate_by(self, angle: float, tolerance: float, token: CancelToken,
-                  deadline: Deadline, on_progress: ProgressCallback = None) -> float:
+    def rotate_by(
+        self,
+        angle: float,
+        tolerance: float,
+        token: CancelToken,
+        deadline: Deadline,
+        on_progress: ProgressCallback = None,
+    ) -> float:
         """Turn by `angle` rad (any magnitude). Returns the measured rotation."""
         cfg = self._config
         tracker = YawTracker(self._poses.robot_pose(_SNAPSHOT_TIMEOUT).yaw)
@@ -96,8 +104,14 @@ class BaseMotion:
         self._clock.sleep(cfg.rotate_settle_time, token)
         return tracker.update(self._poses.robot_pose(_SNAPSHOT_TIMEOUT).yaw)
 
-    def turn_to_heading(self, heading: float, tolerance: float, token: CancelToken,
-                        deadline: Deadline, on_progress: ProgressCallback = None) -> float:
+    def turn_to_heading(
+        self,
+        heading: float,
+        tolerance: float,
+        token: CancelToken,
+        deadline: Deadline,
+        on_progress: ProgressCallback = None,
+    ) -> float:
         """Turn to an absolute map heading. Returns the final heading error (rad)."""
         error = normalize_angle(heading - self._poses.robot_pose(_SNAPSHOT_TIMEOUT).yaw)
         if abs(error) <= tolerance:
@@ -105,14 +119,26 @@ class BaseMotion:
         self.rotate_by(error, tolerance, token, deadline, on_progress)
         return normalize_angle(heading - self._poses.robot_pose(_SNAPSHOT_TIMEOUT).yaw)
 
-    def face_point(self, x: float, y: float, tolerance: float, token: CancelToken,
-                   deadline: Deadline) -> float:
+    def face_point(
+        self,
+        x: float,
+        y: float,
+        tolerance: float,
+        token: CancelToken,
+        deadline: Deadline,
+    ) -> float:
         """Turn to look at (x, y). Returns the final heading error (rad)."""
         heading = self._poses.robot_pose(_SNAPSHOT_TIMEOUT).bearing_to(x, y)
         return self.turn_to_heading(heading, tolerance, token, deadline)
 
-    def drive_straight(self, distance: float, speed: float, token: CancelToken,
-                       deadline: Deadline, on_progress: ProgressCallback = None) -> float:
+    def drive_straight(
+        self,
+        distance: float,
+        speed: float,
+        token: CancelToken,
+        deadline: Deadline,
+        on_progress: ProgressCallback = None,
+    ) -> float:
         """
         Drive `distance` m along the current heading (negative = backward).
 
@@ -132,7 +158,9 @@ class BaseMotion:
                     on_progress(max(remaining, 0.0))
                 if remaining <= cfg.drive_stop_tolerance:
                     break
-                self._base.command(direction * drive_command(remaining, speed, cfg), 0.0)
+                self._base.command(
+                    direction * drive_command(remaining, speed, cfg), 0.0
+                )
         finally:
             self._base.stop()
         self._clock.sleep(cfg.drive_settle_time, token)
@@ -145,7 +173,7 @@ class BaseMotion:
         while True:
             token.raise_if_cancelled()
             if deadline.expired():
-                raise TaskFailure(ErrorCode.TIMEOUT, 'Motion timed out.')
+                raise TaskFailure(ErrorCode.TIMEOUT, "Motion timed out.")
             try:
                 pose = self._poses.robot_pose(period)
                 last_seen = self._clock.now()
@@ -159,5 +187,6 @@ class BaseMotion:
 
 def _travelled(start: Pose2D, pose: Pose2D) -> float:
     """Signed distance from `start` to `pose` along the starting heading."""
-    return ((pose.x - start.x) * math.cos(start.yaw)
-            + (pose.y - start.y) * math.sin(start.yaw))
+    return (pose.x - start.x) * math.cos(start.yaw) + (pose.y - start.y) * math.sin(
+        start.yaw
+    )

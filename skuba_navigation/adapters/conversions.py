@@ -1,4 +1,5 @@
 """Core types <-> ROS messages."""
+
 from typing import Any, Dict
 
 from builtin_interfaces.msg import Duration, Time
