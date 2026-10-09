@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKUBA Map Editor</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --line: #d9dce1; --text: #1d2127;
+    --muted: #6b7280; --accent: #2563eb; --accent-soft: #dbe6fd; --danger: #c62828;
+    --canvas: #9aa0a8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171b; --panel: #1e2126; --line: #30343b; --text: #e6e8eb;
+      --muted: #9aa1ab; --accent: #6b9bff; --accent-soft: #24324d; --danger: #ef5350;
+      --canvas: #0e0f12;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: 1fr 320px;
+    grid-template-areas: "top top" "map side" "status side";
+  }
+  header {
+    grid-area: top; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 14px; margin: 0 8px 0 0; }
+  .group { display: flex; gap: 4px; align-items: center; padding-right: 8px;
+           border-right: 1px solid var(--line); }
+  .group:last-child { border-right: 0; }
+  button, select, input {
+    font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent-soft); border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  .swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block;
+            border: 1px solid var(--muted); vertical-align: -2px; margin-right: 4px; }
+  #mapwrap { grid-area: map; position: relative; overflow: hidden; background: var(--canvas); }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  aside { grid-area: side; background: var(--panel); border-left: 1px solid var(--line);
+          overflow-y: auto; padding: 12px; }
+  aside h2 { font-size: 13px; margin: 0 0 6px; }
+  aside p { color: var(--muted); margin: 0 0 8px; font-size: 12px; }
+  #posePath { overflow-wrap: anywhere; }
+  .row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .row label { color: var(--muted); min-width: 72px; }
+  .loc { border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin-bottom: 6px; }
+  .loc.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .loc .name { width: 100%; font-weight: 600; margin-bottom: 4px; }
+  .loc .nums { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; }
+  .loc .nums input { width: 100%; padding: 3px 5px; }
+  .loc .nums span { font-size: 11px; color: var(--muted); }
+  .del { color: var(--danger); }
+  section { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+  footer { grid-area: status; display: flex; gap: 16px; padding: 4px 12px;
+           background: var(--panel); border-top: 1px solid var(--line); color: var(--muted);
+           white-space: nowrap; overflow: hidden; }
+  #toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+           background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+           padding: 6px 12px; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+  #toast.err { border-color: var(--danger); color: var(--danger); }
+  kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line);
+        border-radius: 3px; padding: 0 3px; }
+  @media (max-width: 760px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto auto;
+           grid-template-areas: "top" "map" "status" "side"; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>SKUBA Map Editor</h1>
+  <div class="group">
+    <select id="mapSelect" title="Map"></select>
+    <button id="saveMap" class="primary" disabled title="Ctrl+S">Save map</button>
+  </div>
+  <div class="group" id="tools">
+    <button data-tool="brush" title="B">Brush</button>
+    <button data-tool="line" title="L">Line</button>
+    <button data-tool="rect" title="R">Rect</button>
+    <button data-tool="fill" title="F">Fill</button>
+    <button data-tool="loc" title="P">Location</button>
+    <button data-tool="pan" title="H / hold Space">Pan</button>
+  </div>
+  <div class="group" id="colors">
+    <button data-val="254" title="1"><span class="swatch" style="background:#fff"></span>Free</button>
+    <button data-val="0" title="2"><span class="swatch" style="background:#000"></span>Wall</button>
+    <button data-val="205" title="3"><span class="swatch" style="background:#cdcdcd"></span>Unknown</button>
+  </div>
+  <div class="group">
+    <label for="size">Size</label>
+    <input id="size" type="range" min="1" max="40" value="3" style="width:90px">
+    <span id="sizeLabel">3 px</span>
+  </div>
+  <div class="group">
+    <button id="undo" title="Ctrl+Z">Undo</button>
+    <button id="redo" title="Ctrl+Shift+Z">Redo</button>
+    <button id="fit" title="0">Fit</button>
+  </div>
+</header>
+
+<div id="mapwrap"><canvas id="cv"></canvas><div id="toast"></div></div>
+
+<aside>
+  <section>
+    <h2>Clean up</h2>
+    <p>Small noise left by the lidar. Both are undoable.</p>
+    <div class="row"><label for="speck">Specks ≤</label>
+      <input id="speck" type="number" min="1" value="4" style="width:64px"> px
+      <button id="cleanSpecks">Remove</button></div>
+    <div class="row"><label for="hole">Holes ≤</label>
+      <input id="hole" type="number" min="1" value="50" style="width:64px"> px
+      <button id="fillHoles">Fill free</button></div>
+  </section>
+  <section>
+    <h2>Locations</h2>
+    <p id="posePath">Shared by every map, read by nav_to_pose.</p>
+    <div class="row">
+      <button id="saveLocs" class="primary" disabled>Save locations</button>
+      <button id="reloadLocs">Reload</button>
+    </div>
+    <div id="locList"></div>
+  </section>
+  <section style="border:0">
+    <h2>How to</h2>
+    <p><b>Location tool:</b> click to drop, drag to aim. Drag a marker to move it,
+      drag its arrow tip to turn it.<br>
+      <b>Pan:</b> right/middle drag or hold <kbd>Space</kbd>. <b>Zoom:</b> wheel.<br>
+      <b>Line</b> closes gaps in walls. <b>Fill</b> recolours one connected area.<br>
+      Saving a map keeps the original as <code>.pgm.bak</code>; saving locations keeps a timestamped backup.</p>
+  </section>
+</aside>
+
+<footer><span id="stCursor">–</span><span id="stMap">no map</span><span id="stDirty"></span></footer>
+
+<script>
+"use strict";
+const FREE = 254, WALL = 0, UNKNOWN = 205;
+const $ = (id) => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+const st = {
+  map: null,            // {id, width, height, resolution, origin, px: Uint8Array}
+  off: null, offCtx: null, img: null,
+  view: { s: 1, x: 0, y: 0 },
+  tool: "brush", val: WALL, size: 3,
+  undo: [], redo: [], dirty: false,
+  locs: [], sel: -1, locsDirty: false,
+  drag: null, hover: null, space: false,
+};
+
+// ── helpers ───────────────────────────────────────────────────────────
+function toast(msg, err) {
+  const t = $("toast"); t.textContent = msg; t.className = err ? "err" : "";
+  t.style.display = "block"; clearTimeout(toast.h);
+  toast.h = setTimeout(() => (t.style.display = "none"), err ? 5000 : 2200);
+}
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body) } : undefined);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const b64ToBytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+function bytesToB64(u8) {
+  let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+// pixel (col,row from top) <-> map frame (x,y) -- same formulas as core/map_editor.py
+function pixToWorld(c, r) {
+  const m = st.map; return [m.origin[0] + (c + 0.5) * m.resolution, m.origin[1] + (m.height - r - 0.5) * m.resolution];
+}
+function worldToPix(x, y) {
+  const m = st.map; return [(x - m.origin[0]) / m.resolution - 0.5, m.height - (y - m.origin[1]) / m.resolution - 0.5];
+}
+const screenToPix = (sx, sy) => [(sx - st.view.x) / st.view.s, (sy - st.view.y) / st.view.s];
+const pixToScreen = (c, r) => [c * st.view.s + st.view.x, r * st.view.s + st.view.y];
+
+// ── canvas + rendering ────────────────────────────────────────────────
+function resize() {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+  ctx.setTransform(d, 0, 0, d, 0, 0); draw();
+}
+function shade(v) { return v === FREE ? 255 : v === WALL ? 0 : v === UNKNOWN ? 205 : v; }
+function rebuildImage() {
+  const m = st.map, d = st.img.data;
+  for (let i = 0; i < m.px.length; i++) {
+    const g = shade(m.px[i]); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = g; d[i * 4 + 3] = 255;
+  }
+  st.offCtx.putImageData(st.img, 0, 0);
+}
+function fit() {
+  if (!st.map) return;
+  const r = cv.getBoundingClientRect(), m = st.map;
+  st.view.s = Math.min(r.width / m.width, r.height / m.height) * 0.95;
+  st.view.x = (r.width - m.width * st.view.s) / 2; st.view.y = (r.height - m.height * st.view.s) / 2;
+  draw();
+}
+function draw() {
+  const r = cv.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  if (!st.map) return;
+  const v = st.view;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(st.off, v.x, v.y, st.map.width * v.s, st.map.height * v.s);
+  drawOrigin(); drawLocations(); drawPreview();
+}
+function drawOrigin() {
+  const [c, r] = worldToPix(0, 0), [x, y] = pixToScreen(c + 0.5, r + 0.5), L = 24;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#e53935"; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + L, y); ctx.stroke();
+  ctx.strokeStyle = "#43a047"; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - L); ctx.stroke();
+}
+function markerGeom(loc) {
+  const [c, r] = worldToPix(loc.x, loc.y), [x, y] = pixToScreen(c + 0.5, r + 0.5);
+  const L = 26; return { x, y, tx: x + Math.cos(-loc.yaw) * L, ty: y + Math.sin(-loc.yaw) * L };
+}
+function drawLocations() {
+  ctx.font = "600 12px system-ui, sans-serif";
+  st.locs.forEach((loc, i) => {
+    const g = markerGeom(loc), sel = i === st.sel, col = sel ? "#ff6d00" : "#1e88e5";
+    ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(g.tx, g.ty); ctx.stroke();
+    const a = Math.atan2(g.ty - g.y, g.tx - g.x);
+    ctx.beginPath(); ctx.moveTo(g.tx, g.ty);
+    ctx.lineTo(g.tx - 9 * Math.cos(a - 0.45), g.ty - 9 * Math.sin(a - 0.45));
+    ctx.lineTo(g.tx - 9 * Math.cos(a + 0.45), g.ty - 9 * Math.sin(a + 0.45)); ctx.fill();
+    ctx.beginPath(); ctx.arc(g.x, g.y, 6, 0, 7); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.9)";
+    ctx.strokeText(loc.name, g.x + 9, g.y - 9); ctx.fillStyle = "#111"; ctx.fillText(loc.name, g.x + 9, g.y - 9);
+  });
+}
+function drawPreview() {
+  const d = st.drag, h = st.hover;
+  ctx.strokeStyle = "#ff6d00"; ctx.fillStyle = "rgba(255,109,0,.25)"; ctx.lineWidth = 1.5;
+  if (d && d.mode === "line") {
+    const [x0, y0] = pixToScreen(d.c0 + 0.5, d.r0 + 0.5), [x1, y1] = pixToScreen(d.c1 + 0.5, d.r1 + 0.5);
+    ctx.lineWidth = Math.max(1.5, st.size * st.view.s); ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,109,0,.6)";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.lineCap = "butt";
+  } else if (d && d.mode === "rect") {
+    const c0 = Math.min(d.c0, d.c1), r0 = Math.min(d.r0, d.r1);
+    const [x, y] = pixToScreen(c0, r0);
+    ctx.fillRect(x, y, (Math.abs(d.c1 - d.c0) + 1) * st.view.s, (Math.abs(d.r1 - d.r0) + 1) * st.view.s);
+  }
+  if (h && ["brush", "line"].includes(st.tool)) {
+    const [x, y] = pixToScreen(h[0] + 0.5, h[1] + 0.5);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = "#ff6d00";
+    ctx.beginPath(); ctx.arc(x, y, Math.max(2, (st.size / 2) * st.view.s), 0, 7); ctx.stroke();
+  }
+}
+
+// ── editing ops ───────────────────────────────────────────────────────
+function snapshot() {
+  st.undo.push(st.map.px.slice()); if (st.undo.length > 60) st.undo.shift(); st.redo = [];
+}
+function markDirty() { st.dirty = true; rebuildImage(); draw(); updateUi(); }
+function stamp(c, r) {
+  const m = st.map, rad = st.size / 2, R = Math.ceil(rad);
+  for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+    if (st.size > 1 && dc * dc + dr * dr > rad * rad) continue;
+    const cc = c + dc, rr = r + dr;
+    if (cc >= 0 && rr >= 0 && cc < m.width && rr < m.height) m.px[rr * m.width + cc] = st.val;
+  }
+}
+function stampLine(c0, r0, c1, r1) {
+  const n = Math.max(Math.abs(c1 - c0), Math.abs(r1 - r0), 1);
+  for (let i = 0; i <= n; i++) stamp(Math.round(c0 + (c1 - c0) * i / n), Math.round(r0 + (r1 - r0) * i / n));
+}
+function fillRect(c0, r0, c1, r1) {
+  const m = st.map;
+  for (let r = Math.max(0, Math.min(r0, r1)); r <= Math.min(m.height - 1, Math.max(r0, r1)); r++)
+    for (let c = Math.max(0, Math.min(c0, c1)); c <= Math.min(m.width - 1, Math.max(c0, c1)); c++)
+      m.px[r * m.width + c] = st.val;
+}
+function floodFill(c, r) {
+  const m = st.map, W = m.width, H = m.height, start = r * W + c, from = m.px[start];
+  if (from === st.val) return false;
+  const stack = [start];
+  while (stack.length) {
+    const i = stack.pop(); if (m.px[i] !== from) continue;
+    m.px[i] = st.val; const x = i % W, y = (i / W) | 0;
+    if (x > 0) stack.push(i - 1); if (x < W - 1) stack.push(i + 1);
+    if (y > 0) stack.push(i - W); if (y < H - 1) stack.push(i + W);
+  }
+  return true;
+}
+// Connected components of `value`; fn(cells, touchesBorder) decides each one.
+function components(value, conn8, fn) {
+  const m = st.map, W = m.width, H = m.height, seen = new Uint8Array(W * H);
+  for (let s = 0; s < W * H; s++) {
+    if (seen[s] || m.px[s] !== value) continue;
+    const cells = [], stack = [s]; let border = false; seen[s] = 1;
+    while (stack.length) {
+      const i = stack.pop(); cells.push(i);
+      const x = i % W, y = (i / W) | 0;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || (!conn8 && dx && dy)) continue;
+        const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx; if (!seen[j] && m.px[j] === value) { seen[j] = 1; stack.push(j); }
+      }
+    }
+    fn(cells, border);
+  }
+}
+function cleanSpecks() {
+  const max = +$("speck").value, m = st.map; snapshot(); let n = 0;
+  components(WALL, true, (cells) => { if (cells.length <= max) { cells.forEach((i) => (m.px[i] = FREE)); n++; } });
+  if (!n) { st.undo.pop(); return toast("No specks that small"); }
+  markDirty(); toast(`Removed ${n} speck${n > 1 ? "s" : ""}`);
+}
+function fillHoles() {
+  // only unknown islands fully inside the map; the grey outside stays unknown
+  const max = +$("hole").value, m = st.map; snapshot(); let n = 0;
+  components(UNKNOWN, false, (cells, border) => {
+    if (!border && cells.length <= max) { cells.forEach((i) => (m.px[i] = FREE)); n++; }
+  });
+  if (!n) { st.undo.pop(); return toast("No enclosed holes that small"); }
+  markDirty(); toast(`Filled ${n} hole${n > 1 ? "s" : ""}`);
+}
+function undo() { if (!st.undo.length) return; st.redo.push(st.map.px); st.map.px = st.undo.pop(); markDirty(); }
+function redo() { if (!st.redo.length) return; st.undo.push(st.map.px); st.map.px = st.redo.pop(); markDirty(); }
+
+// ── locations ─────────────────────────────────────────────────────────
+function hitLocation(sx, sy) {
+  for (let i = st.locs.length - 1; i >= 0; i--) {
+    const g = markerGeom(st.locs[i]);
+    if (Math.hypot(sx - g.tx, sy - g.ty) < 9) return { i, part: "tip" };
+    if (Math.hypot(sx - g.x, sy - g.y) < 9) return { i, part: "body" };
+  }
+  return null;
+}
+function uniqueName() { let i = st.locs.length + 1; while (st.locs.some((l) => l.name === `location_${i}`)) i++; return `location_${i}`; }
+function locsChanged() { st.locsDirty = true; renderLocList(); draw(); updateUi(); }
+function renderLocList() {
+  const box = $("locList"); box.innerHTML = "";
+  st.locs.forEach((loc, i) => {
+    const el = document.createElement("div"); el.className = "loc" + (i === st.sel ? " sel" : "");
+    let deg = ((loc.yaw * 180 / Math.PI) % 360 + 540) % 360 - 180;
+    if (Math.abs(deg) < 0.05) deg = 0;  // no "-0.0"
+    el.innerHTML = `<input class="name" value="">
+      <div class="nums"><span>x (m)</span><span>y (m)</span><span>yaw (°)</span><span></span>
+      <input data-k="x" type="number" step="0.05" value="${loc.x.toFixed(3)}">
+      <input data-k="y" type="number" step="0.05" value="${loc.y.toFixed(3)}">
+      <input data-k="yaw" type="number" step="5" value="${deg.toFixed(1)}">
+      <button class="del" title="Delete">✕</button></div>`;
+    const name = el.querySelector(".name"); name.value = loc.name;
+    name.oninput = () => { loc.name = name.value; st.locsDirty = true; draw(); updateUi(); };
+    el.querySelectorAll("input[data-k]").forEach((inp) => (inp.onchange = () => {
+      const v = parseFloat(inp.value); if (!isFinite(v)) return;
+      loc[inp.dataset.k] = inp.dataset.k === "yaw" ? v * Math.PI / 180 : v; locsChanged();
+    }));
+    el.querySelector(".del").onclick = (e) => {
+      e.stopPropagation(); st.locs.splice(i, 1); if (st.sel >= st.locs.length) st.sel = st.locs.length - 1; locsChanged();
+    };
+    el.onclick = (e) => { if (e.target.tagName === "INPUT") { st.sel = i; draw(); return; } st.sel = i; centerOn(loc); renderLocList(); };
+    box.appendChild(el);
+  });
+  if (!st.locs.length) box.innerHTML = `<p>No locations yet — use the Location tool.</p>`;
+}
+function centerOn(loc) {
+  if (!st.map) return; const r = cv.getBoundingClientRect(), [c, rr] = worldToPix(loc.x, loc.y);
+  st.view.x = r.width / 2 - (c + 0.5) * st.view.s; st.view.y = r.height / 2 - (rr + 0.5) * st.view.s; draw();
+}
+
+// ── pointer ───────────────────────────────────────────────────────────
+function cellAt(e) {
+  const r = cv.getBoundingClientRect(), [c, rr] = screenToPix(e.clientX - r.left, e.clientY - r.top);
+  return [Math.floor(c), Math.floor(rr), e.clientX - r.left, e.clientY - r.top];
+}
+cv.addEventListener("contextmenu", (e) => e.preventDefault());
+cv.addEventListener("pointerdown", (e) => {
+  if (!st.map) return; cv.setPointerCapture(e.pointerId);
+  const [c, r, sx, sy] = cellAt(e);
+  if (e.button === 1 || e.button === 2 || st.tool === "pan" || st.space) {
+    st.drag = { mode: "pan", sx, sy, vx: st.view.x, vy: st.view.y }; return;
+  }
+  if (e.button !== 0) return;
+  switch (st.tool) {
+    case "brush": snapshot(); stamp(c, r); st.drag = { mode: "brush", c, r }; markDirty(); break;
+    case "line": st.drag = { mode: "line", c0: c, r0: r, c1: c, r1: r }; draw(); break;
+    case "rect": st.drag = { mode: "rect", c0: c, r0: r, c1: c, r1: r }; draw(); break;
+    case "fill":
+      if (c < 0 || r < 0 || c >= st.map.width || r >= st.map.height) return;
+      snapshot(); if (floodFill(c, r)) markDirty(); else st.undo.pop(); break;
+    case "loc": {
+      const hit = hitLocation(sx, sy);
+      if (hit) { st.sel = hit.i; st.drag = { mode: hit.part === "tip" ? "aim" : "move", i: hit.i }; renderLocList(); draw(); break; }
+      const [x, y] = pixToWorld(...screenToPix(sx, sy).map((v) => v - 0.5));
+      st.locs.push({ name: uniqueName(), x, y, yaw: 0 }); st.sel = st.locs.length - 1;
+      st.drag = { mode: "aim", i: st.sel, fresh: true }; locsChanged();
+      break;
+    }
+  }
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!st.map) return;
+  const [c, r, sx, sy] = cellAt(e), d = st.drag; st.hover = [c, r];
+  const m = st.map, inside = c >= 0 && r >= 0 && c < m.width && r < m.height;
+  const [wx, wy] = pixToWorld(c, r);
+  $("stCursor").textContent = inside
+    ? `x ${wx.toFixed(2)} m  y ${wy.toFixed(2)} m  ·  px (${c}, ${r}) = ${m.px[r * m.width + c]}` : "–";
+  if (!d) return draw();
+  if (d.mode === "pan") { st.view.x = d.vx + sx - d.sx; st.view.y = d.vy + sy - d.sy; }
+  else if (d.mode === "brush") { stampLine(d.c, d.r, c, r); d.c = c; d.r = r; rebuildImage(); st.dirty = true; updateUi(); }
+  else if (d.mode === "line" || d.mode === "rect") { d.c1 = c; d.r1 = r; }
+  else if (d.mode === "move" || d.mode === "aim") {
+    const loc = st.locs[d.i], [pc, pr] = screenToPix(sx, sy).map((v) => v - 0.5), [x, y] = pixToWorld(pc, pr);
+    if (d.mode === "move") { loc.x = x; loc.y = y; }
+    else if (Math.hypot(x - loc.x, y - loc.y) > 0.05) loc.yaw = Math.atan2(y - loc.y, x - loc.x);
+    st.locsDirty = true; updateUi();
+  }
+  draw();
+});
+cv.addEventListener("pointerup", () => {
+  const d = st.drag; st.drag = null; if (!d) return;
+  if (d.mode === "line") { snapshot(); stampLine(d.c0, d.r0, d.c1, d.r1); markDirty(); }
+  else if (d.mode === "rect") { snapshot(); fillRect(d.c0, d.r0, d.c1, d.r1); markDirty(); }
+  else if (d.mode === "move" || d.mode === "aim") {
+    renderLocList();
+    if (d.fresh) { const n = $("locList").querySelectorAll(".name")[d.i]; if (n) { n.focus(); n.select(); } }
+  }
+  draw();
+});
+cv.addEventListener("pointerleave", () => { st.hover = null; draw(); });
+cv.addEventListener("wheel", (e) => {
+  e.preventDefault(); if (!st.map) return;
+  const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const k = Math.exp(-e.deltaY * 0.0015), s = Math.min(80, Math.max(0.2, st.view.s * k));
+  st.view.x = sx - (sx - st.view.x) * s / st.view.s; st.view.y = sy - (sy - st.view.y) * s / st.view.s; st.view.s = s; draw();
+}, { passive: false });
+
+// ── ui wiring ─────────────────────────────────────────────────────────
+function setTool(t) { st.tool = t; document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t));
+  cv.style.cursor = t === "pan" ? "grab" : t === "loc" ? "pointer" : "crosshair"; }
+function setVal(v) { st.val = v; document.querySelectorAll("#colors button").forEach((b) => b.classList.toggle("on", +b.dataset.val === v)); }
+function updateUi() {
+  $("saveMap").disabled = !st.dirty; $("saveLocs").disabled = !st.locsDirty;
+  $("undo").disabled = !st.undo.length; $("redo").disabled = !st.redo.length;
+  $("stDirty").textContent = [st.dirty && "map not saved", st.locsDirty && "locations not saved"].filter(Boolean).join(" · ");
+}
+document.querySelectorAll("#tools button").forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
+document.querySelectorAll("#colors button").forEach((b) => (b.onclick = () => setVal(+b.dataset.val)));
+$("size").oninput = () => { st.size = +$("size").value; $("sizeLabel").textContent = `${st.size} px`; draw(); };
+$("undo").onclick = undo; $("redo").onclick = redo; $("fit").onclick = fit;
+$("cleanSpecks").onclick = () => st.map && cleanSpecks();
+$("fillHoles").onclick = () => st.map && fillHoles();
+$("saveMap").onclick = saveMap; $("saveLocs").onclick = saveLocs;
+$("reloadLocs").onclick = () => { if (!st.locsDirty || confirm("Discard unsaved location changes?")) loadLocs(); };
+$("mapSelect").onchange = () => {
+  if (st.dirty && !confirm("Discard unsaved map edits?")) { $("mapSelect").value = st.map.id; return; }
+  loadMap($("mapSelect").value);
+};
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); if (st.dirty) saveMap(); if (st.locsDirty) saveLocs(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); return; }
+  if (k === " ") { st.space = true; cv.style.cursor = "grab"; e.preventDefault(); return; }
+  const tools = { b: "brush", l: "line", r: "rect", f: "fill", p: "loc", h: "pan" };
+  if (tools[k]) setTool(tools[k]);
+  if (k === "1") setVal(FREE); if (k === "2") setVal(WALL); if (k === "3") setVal(UNKNOWN);
+  if (k === "0") fit();
+  if ((k === "delete" || k === "backspace") && st.sel >= 0 && st.tool === "loc") { st.locs.splice(st.sel, 1); st.sel = -1; locsChanged(); }
+});
+addEventListener("keyup", (e) => { if (e.key === " ") { st.space = false; setTool(st.tool); } });
+addEventListener("beforeunload", (e) => { if (st.dirty || st.locsDirty) { e.preventDefault(); e.returnValue = ""; } });
+addEventListener("resize", resize);
+
+// ── io ────────────────────────────────────────────────────────────────
+async function loadMaps() {
+  const { maps } = await api("/api/maps"), sel = $("mapSelect");
+  sel.innerHTML = maps.map((m) => `<option>${m}</option>`).join("");
+  const last = localStorageGet("mapId");
+  if (maps.length) loadMap(maps.includes(last) ? last : maps[0]);
+}
+async function loadMap(id) {
+  try {
+    const m = await api(`/api/map?id=${encodeURIComponent(id)}`);
+    m.px = b64ToBytes(m.pixels); delete m.pixels;
+    st.map = m; st.undo = []; st.redo = []; st.dirty = false;
+    st.off = document.createElement("canvas"); st.off.width = m.width; st.off.height = m.height;
+    st.offCtx = st.off.getContext("2d"); st.img = st.offCtx.createImageData(m.width, m.height);
+    $("mapSelect").value = id; localStorageSet("mapId", id);
+    $("stMap").textContent = `${id}  ·  ${m.width}×${m.height} px @ ${m.resolution} m  ·  ${(m.width * m.resolution).toFixed(1)}×${(m.height * m.resolution).toFixed(1)} m`;
+    if (Math.abs(m.origin[2] || 0) > 1e-6) toast("Map origin has a yaw — location positions may be off", true);
+    rebuildImage(); fit(); updateUi();
+  } catch (e) { toast(`Load failed: ${e.message}`, true); }
+}
+async function saveMap() {
+  try {
+    const r = await api("/api/map", { id: st.map.id, width: st.map.width, height: st.map.height, pixels: bytesToB64(st.map.px) });
+    st.dirty = false; updateUi(); toast(`Saved ${r.saved.split("/").pop()}`);
+  } catch (e) { toast(`Save failed: ${e.message}`, true); }
+}
+async function loadLocs() {
+  try {
+    const r = await api("/api/locations"); st.locs = r.locations; st.sel = -1; st.locsDirty = false;
+    $("posePath").textContent = `${r.path} — shared by every map, read by nav_to_pose.`;
+    renderLocList(); draw(); updateUi();
+  } catch (e) { toast(`Locations failed: ${e.message}`, true); }
+}
+async function saveLocs() {
+  try {
+    await api("/api/locations", { locations: st.locs });
+    st.locsDirty = false; updateUi(); toast(`Saved ${st.locs.length} location${st.locs.length === 1 ? "" : "s"}`);
+  } catch (e) { toast(`Save failed: ${e.message}`, true); }
+}
+function localStorageGet(k) { try { return localStorage.getItem("skubaMapEditor." + k); } catch { return null; } }
+function localStorageSet(k, v) { try { localStorage.setItem("skubaMapEditor." + k, v); } catch { /* private mode */ } }
+
+setTool("brush"); setVal(WALL); resize(); loadMaps(); loadLocs();
+</script>
+</body>
+</html>

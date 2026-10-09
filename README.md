@@ -93,6 +93,7 @@ Executables registered in `setup.py`:
 | `emergency_stop` | Publishes the twist_mux e-stop lock |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
+| `map_editor` | Web map editor (`ros2 run skuba_navigation map_editor`, then http://<robot>:8090): paint free/wall/unknown, clean specks/holes, place named locations into `share/saved_pose.yaml` |
 
 `cmd_vel` arbitration is handled by `twist_mux` (`params/twist_mux.yaml`): joy,
 keyboard, follow and nav sources are muxed into the single `/cmd_vel` the base

@@ -34,6 +34,7 @@ setup(
         ("share/" + package_name, glob("launch/*.py")),
         ("share/" + package_name + "/params", glob("params/*.yaml")),
         ("share/" + package_name + "/behavior_trees", glob("behavior_trees/*.xml")),
+        ("share/" + package_name + "/web", glob("web/*.html")),
     ]
     + maps_data_files(),
     install_requires=["setuptools"],
@@ -53,6 +54,7 @@ setup(
             "following_server = skuba_navigation.nodes.following_server:main",
             "save_location = skuba_navigation.nodes.save_location:main",
             "emergency_stop = skuba_navigation.nodes.emergency_stop:main",
+            "map_editor = skuba_navigation.nodes.map_editor:main",
         ],
     },
 )
