@@ -50,7 +50,7 @@ services:
     privileged: true
     network_mode: host
     environment:
-      - ROS_DOMAIN_ID=10
+      - ROS_DOMAIN_ID=67
       - DISPLAY=:1
       - XAUTHORITY=
     devices:
@@ -59,10 +59,10 @@ services:
       - /dev:/dev
       - ../.:/root/skuba_ws/src/skuba_navigation
       - ../../skuba_bringup:/root/skuba_ws/src/skuba_bringup
-      - ../../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces
+      - ../../skuba_interface:/root/skuba_ws/src/skuba_interfaces
       - ../../skuba_docker/config/system_manifest.yaml:/root/system_manifest.yaml:ro
       - ../../skuba_description:/root/skuba_ws/src/skuba_description
-      - ../../sllidar_ros2:/root/skuba_ws/src/sllidar_ros2
+      - ../../skuba_bringup/drivers/sllidar_ros2:/root/skuba_ws/src/sllidar_ros2
       - nav_build:/root/skuba_ws/build
       - nav_install:/root/skuba_ws/install
       - ./entrypoint.sh:/entrypoint_override.sh:ro
@@ -75,6 +75,8 @@ services:
     # Mapping (nav2_slam_bringup_launch.py) is likewise a separate, manual,
     # driven session (drive the robot, save when done):
     #   ros2 launch skuba_navigation nav2_slam_bringup_launch.py
+    # or base + mapping in one go:
+    #   ros2 launch skuba_navigation cheesecake_slam.launch.py
     command: tail -f /dev/null
     deploy:
       resources:

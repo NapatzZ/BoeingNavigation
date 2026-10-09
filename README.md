@@ -143,7 +143,7 @@ docker exec -it skuba-nav bash
 ```
 
 Runs `napatku/skuba-navigation:latest` (built from `docker/dockerfile`, based on
-`osrf/ros:humble-desktop-full`) with `--network host`, `ROS_DOMAIN_ID=10`,
+`osrf/ros:humble-desktop-full`) with `--network host`, `ROS_DOMAIN_ID=67`,
 `privileged`, and USB passthrough for the LiDAR and kobuki base.
 
 Host source folders are bind-mounted with paths relative to the compose file, so
