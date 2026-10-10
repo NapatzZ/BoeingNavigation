@@ -82,7 +82,7 @@ def test_pixel_world_round_trip():
     assert ed.world_to_pixel(x, y, height, res, origin) == pytest.approx((3, 0))
 
 
-def test_locations_round_trip_matches_navigation_server_schema(tmp_path):
+def test_locations_round_trip_matches_location_store(tmp_path):
     path = tmp_path / "saved_pose.yaml"
     locs = [
         {"name": "kitchen", "x": 1.5, "y": -0.25, "yaw": math.pi / 2},
@@ -96,12 +96,37 @@ def test_locations_round_trip_matches_navigation_server_schema(tmp_path):
         assert (got["x"], got["y"], got["yaw"]) == pytest.approx(
             (want["x"], want["y"], want["yaw"])
         )
-    # the file navigation_server actually parses
+    # the reader navigation_server actually uses
     kitchen = LocationStore(path).get("kitchen")
     assert kitchen.frame_id == "map"
     assert (kitchen.pose.x, kitchen.pose.y, kitchen.pose.yaw) == pytest.approx(
         (1.5, -0.25, math.pi / 2)
     )
+
+
+def test_save_keeps_fields_the_editor_does_not_own(tmp_path):
+    path = tmp_path / "saved_pose.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "positions": {
+                    "kitchen": {
+                        "header": {"frame_id": "map", "side": "north"},
+                        "pose": {
+                            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                            "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+                        },
+                    },
+                    "old": {"header": {"frame_id": "map"}, "pose": {}},
+                }
+            }
+        )
+    )
+    ed.save_locations(path, [{"name": "kitchen", "x": 2.0, "y": 1.0, "yaw": 0.0}])
+    data = yaml.safe_load(path.read_text())
+    assert set(data["positions"]) == {"kitchen"}  # deleted in the editor -> gone
+    assert data["positions"]["kitchen"]["header"]["side"] == "north"
+    assert data["positions"]["kitchen"]["pose"]["position"]["x"] == 2.0
 
 
 def test_save_locations_backs_up_previous_file(tmp_path):
