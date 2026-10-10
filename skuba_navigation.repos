@@ -3,5 +3,5 @@
 repositories:
   skuba_interfaces:
     type: git
-    url: https://gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_interface.git
+    url: https://gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_interfaces.git
     version: humble

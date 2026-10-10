@@ -81,7 +81,7 @@ Behaviour differences worth knowing:
 
 All actions share these rules: see [Behaviour contract](#behaviour-contract).
 The full `.action` definitions (with comments) are in
-`skuba-interface/action/`.
+`skuba_interfaces/action/`.
 
 ### `/skuba/nav/go_to_pose` — `GoToPose` (Nav2)
 
@@ -355,7 +355,7 @@ serving cancels, feedback and Nav2 futures on the other threads.
 
 ## Adding a new action
 
-1. Add `skuba-interface/action/<Name>.action` (use `NavigationError error` in
+1. Add `skuba_interfaces/action/<Name>.action` (use `NavigationError error` in
    the result) and rebuild `skuba_interfaces`.
 2. Write `tasks.<name>(ctx, ...) -> TaskResult` in `core/navigation/tasks.py`
    using `ctx.navigate(...)` or `ctx.motion...`; add a goal check to
