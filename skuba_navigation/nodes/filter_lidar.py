@@ -15,7 +15,7 @@ class LidarSubscriber(Node):
         )
         self.publisher_ = self.create_publisher(LaserScan, "/scan_filtered", 10)
         self.srv = self.create_service(
-            FilterLidar, "/skuba/navigation/filter_lidar", self.filter_service_callback
+            FilterLidar, "/skuba/nav/filter_lidar", self.filter_service_callback
         )
         self.get_logger().info("Lidar Filter Service ready")
 

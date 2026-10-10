@@ -10,13 +10,13 @@
 #   joystick   cmd_vel_joy          100    teleop_twist_joy (xbox) — human override
 #   keyboard   cmd_vel_key           90    teleop_twist_keyboard
 #   nav2       cmd_vel_nav           10    collision_monitor cmd_vel_out_topic
-#   nav manual cmd_vel_nav_manual    10    nav_to_pose.py: rotate/move_forward/nudge_to_tf
+#   nav manual cmd_vel_nav_manual    10    navigation_server: rotate/drive_straight/nudge_to_frame
 #
 # cmd_vel_nav and cmd_vel_nav_manual share priority 10 deliberately: both are
-# nav_to_pose_server's own output, and it only ever drives one at a time
-# (a NavigateToPose goal XOR a manual rotate/move/nudge service call), so
+# navigation_server's own output, and its GoalArbiter lets only one goal
+# drive at a time (a NavigateToPose goal XOR a rotate/drive/nudge action), so
 # there is no real arbitration between them — the split exists only so
-# nav_to_pose's raw point-turn/straight-line commands (which bypass Nav2's
+# navigation_server's raw point-turn/straight-line commands (which bypass Nav2's
 # planner and therefore collision_monitor's safety filter entirely) never
 # share a topic with collision_monitor's own filtered output. Two publishers
 # on the same topic would otherwise race.

@@ -58,7 +58,7 @@ bt_navigator:
     # GoalUpdater (used by behavior_trees/follow_point.xml) reads the live person
     # pose from this topic and keeps the follow goal current WITHOUT restarting
     # the action — this is what makes following smooth/responsive.
-    goal_updater_topic: /skuba/navigation/person_pose
+    goal_updater_topic: /skuba/nav/person_pose
     # Recovery behaviour tree. Our own copy of the Nav2 Humble default, with the
     # recovery timings + action order made explicit and tunable:
     #   share/skuba_navigation/behavior_trees/navigate_to_pose_recovery.xml

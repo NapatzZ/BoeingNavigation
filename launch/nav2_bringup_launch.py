@@ -131,8 +131,9 @@ def generate_launch_description():
 
     declare_publish_laser_tf_cmd = DeclareLaunchArgument(
         "publish_laser_tf",
-        default_value="false",
-        description="Publish a static base_link->laser (only when no robot_state_publisher runs)",
+        default_value="true",
+        description="Publish the measured static base_link->laser. Set false once "
+        "skuba_description's laser_joint is corrected, so only one source publishes it.",
     )
 
     declare_log_level_cmd = DeclareLaunchArgument(
@@ -203,10 +204,10 @@ def generate_launch_description():
                 name="filter_lidar",
                 output="screen",
             ),
-            # Off by default: skuba_description's laser_joint already gives
-            # base_link -> laser through robot_state_publisher (which nav needs
-            # for base_link anyway). Two publishers with slightly different
-            # values made the laser frame flicker between them.
+            # On by default: this is the measured laser mount, while
+            # skuba_description's laser_joint is currently wrong. When both
+            # publish, the laser frame flickers between them -- fix the URDF,
+            # then launch with publish_laser_tf:=false.
             Node(
                 package="tf2_ros",
                 executable="static_transform_publisher",

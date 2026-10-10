@@ -72,8 +72,9 @@ no edits.
 Not meant to be run directly, but they are valid standalone launches:
 
 - `nav2_bringup_launch.py` — nav2 core (localization + navigation), plus
-  `emergency_stop`, `filter_lidar`, `twist_mux`, and the `base_link -> laser`
-  static transform. Included by both task launches. `use_localization:=False`
+  `emergency_stop`, `filter_lidar`, `twist_mux`, and the measured `base_link -> laser`
+  static transform (`publish_laser_tf`, default `true` until skuba_description's
+  `laser_joint` is corrected). Included by both task launches. `use_localization:=False`
   skips AMCL (used by `nav2_slam_bringup_launch.py`'s mapping stack, which
   runs SLAM Toolbox instead of AMCL for `map -> odom`, and brings up
   `filter_lidar`/`emergency_stop`/`twist_mux` itself instead of going through
@@ -85,7 +86,7 @@ Executables registered in `setup.py`:
 
 | Executable | Purpose |
 | --- | --- |
-| `nav_to_pose` | Hosts most navigation services (see below) |
+| `navigation_server` | All base-motion actions + location/costmap services (see below) |
 | `save_location` | Writes the current pose into `share/saved_pose.yaml` |
 | `door_detector` | Reports whether the door ahead is open |
 | `costmap_reconfig_server` | Applies costmap presets from `params/costmap_dynamic_config.yaml` at runtime |
@@ -99,26 +100,42 @@ Executables registered in `setup.py`:
 keyboard, follow and nav sources are muxed into the single `/cmd_vel` the base
 drives, with `emergency_stop` holding the lock topic.
 
-## Services
+## navigation_server
 
-All under the `/skuba/navigation/` namespace unless noted.
+Every way of moving the base is an **action** under `/skuba/nav/`, so a caller
+(YASMIN today, py_trees_ros next) gets feedback, can cancel its own goal, and
+learns why a goal failed. Only instant operations remain services.
+**Full reference: [docs/navigation_server.md](docs/navigation_server.md)**
+(goal / result / feedback fields, error codes, cancel, parameters, code
+layout, migration from `nav_to_pose`).
 
-From `nav_to_pose`:
+| Action | Type | Backend | Replaces (`nav_to_pose` service) |
+| --- | --- | --- | --- |
+| `go_to_pose` | `GoToPose` | Nav2 | `nav_to_position` |
+| `go_to_location` | `GoToLocation` | Nav2, saved location | `nav_to_name` |
+| `go_to_frame` | `GoToFrame` | Nav2 + heading correction, standoff next to a TF | `nav_to_tf` |
+| `rotate` | `RotateInPlace` | PD controller on `cmd_vel_nav_manual` | `rotate` |
+| `drive_straight` | `DriveStraight` | closed loop on `cmd_vel_nav_manual` | `move_forward` |
+| `nudge_to_frame` | `NudgeToFrame` | turn / drive / face on `cmd_vel_nav_manual` | `nudge_to_tf` |
 
-| Service | Type | Notes |
+| Service | Type | Replaces |
 | --- | --- | --- |
-| `nav_to_name` | `NavToName` | go to a saved named position |
-| `nav_to_position` | `NavToPose` | go to an explicit `PoseStamped` |
-| `nav_to_tf` | `Nav2ToTF` | go to a standoff pose near a TF frame, via Nav2's planner (supports `approach_side`) |
-| `nudge_to_tf` | `NavToTF` | move towards a TF frame via raw `cmd_vel`, no Nav2 planning |
-| `rotate` | `Rotate` | in-place PD-controlled rotation |
-| `move_forward` | `MoveWheel` | straight-line forward/backward move via raw `cmd_vel` |
-| `cancel_goal` | `std_srvs/Trigger` | cancel the active Nav2 goal |
-| `clear_costmap` | `std_srvs/Trigger` | clear local + global costmaps |
-| `save_pose` | `SaveLocationCommand` | save the current pose under a name |
-| `reload_yaml` | `std_srvs/Trigger` | reload saved positions from `share/saved_pose.yaml` |
+| `clear_costmaps` | `std_srvs/Trigger` | `clear_costmap` |
+| `save_location` | `SaveLocationCommand` | `save_pose` |
+| `reload_locations` | `std_srvs/Trigger` | `reload_yaml` |
 
-From the other nodes:
+`cancel_goal` is gone: cancel through the action itself (the caller's goal
+handle, or `ros2 service call /skuba/nav/<action>/_action/cancel_goal
+action_msgs/srv/CancelGoal "{}"` to cancel all goals on that action).
+A new goal on any of the six actions preempts the running one.
+
+```bash
+ros2 action send_goal --feedback /skuba/nav/go_to_location skuba_interfaces/action/GoToLocation "{location: kitchen}"
+```
+
+## Services of the other nodes
+
+All under `/skuba/nav/`.
 
 | Service | Node |
 | --- | --- |
@@ -131,7 +148,7 @@ From the other nodes:
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in
 this package — it is served by `skuba_vision`'s `follower` node (different
-namespace prefix, unaffected by this package's rename).
+namespace prefix, unaffected by this package's renames).
 
 ## Docker
 

@@ -1,0 +1,53 @@
+# navigation_server parameters. Every navigation.* / motion.* key maps 1:1 to a
+# field of core/navigation/config.py (defaults there; tests keep them in sync).
+navigation_server:
+  ros__parameters:
+    map_frame: map
+    robot_frame: base_link
+    cmd_vel_topic: cmd_vel_nav_manual       # manual twist_mux lane (params/twist_mux.yaml)
+    locations_file: ''                      # empty = <ws>/src/skuba[-_]navigation/share/saved_pose.yaml
+    preempt_handover_timeout: 5.0           # s a new goal waits for the old one to stop
+    nav2:
+      navigate_action: navigate_to_pose
+      compute_path_action: compute_path_to_pose
+      clear_costmap_services:
+        - global_costmap/clear_entirely_global_costmap
+        - local_costmap/clear_entirely_local_costmap
+      server_timeout: 2.0
+      cancel_timeout: 5.0
+    navigation:
+      default_timeout: 60.0             # s, total across attempts when goal.timeout <= 0
+      max_retries: 2                    # extra attempts after a Nav2 ABORTED
+      retry_delay: 1.0                  # s between attempts
+      clear_costmaps_on_start: true
+      clear_costmaps_on_retry: true
+      feedback_rate: 5.0                # Hz, upper bound on action feedback
+      align_timeout: 10.0               # s for the final face-the-target turn
+      standoff_tolerance: 0.15          # m, radial slack when verifying a standoff
+      facing_tolerance_deg: 5.0         # final heading error that triggers a re-face
+      side_bearing_tolerance_deg: 22.5  # half-width of a named approach side
+    motion:
+      rotate_kp: 3.0
+      rotate_kd: 0.3
+      rotate_max_speed: 0.5             # rad/s
+      rotate_min_speed: 0.18            # rad/s, below this floor friction stalls the base
+      rotate_decel_zone_deg: 5.0        # inside this error, command min speed
+      rotate_rate: 50.0                 # Hz
+      rotate_default_tolerance_deg: 10.0
+      rotate_default_timeout: 30.0      # s
+      rotate_settle_time: 0.5           # s to let inertia settle before verifying
+      drive_speed: 0.2                  # m/s
+      drive_slow_zone: 0.1              # m before the target where we slow down
+      drive_slow_factor: 0.3
+      drive_stop_tolerance: 0.05        # m, loop exit threshold
+      drive_verify_tolerance: 0.1       # m, success threshold
+      drive_rate: 10.0                  # Hz
+      drive_timeout_margin: 5.0         # s added to |distance| / speed
+      drive_settle_time: 0.1            # s
+      nudge_align_threshold_deg: 5.0    # turn toward the frame only above this
+      nudge_align_tolerance_deg: 3.0
+      nudge_face_tolerance_deg: 2.0
+      nudge_default_timeout: 30.0       # s
+      nudge_verify_tolerance: 0.15      # m on the final distance to the frame
+      tf_grace: 0.5                     # s of TF dropout tolerated inside a control loop
+      stop_repeats: 10                  # zero-twist messages sent to stop the base

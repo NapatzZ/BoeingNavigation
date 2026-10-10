@@ -6,7 +6,7 @@ Brings up, in order:
   1. hardware + complete-robot state publisher  (skuba_bringup)
   2. nav2                                         (map + params)
   3. RViz                                         (nav2_bringup rviz)
-  4. service nodes: nav_to_pose, save_location, door_detector,
+  4. service nodes: navigation_server, save_location, door_detector,
      costmap_reconfig_server
 
 The person-follower is NOT here: it lives in the skuba-follower container (subsystem
@@ -134,12 +134,15 @@ def generate_launch_description():
     )
 
     # 4. Service nodes
-    nav_to_pose = Node(
+    navigation_server = Node(
         package=nav_pkg,
-        executable="nav_to_pose",
-        name="nav_to_pose",
+        executable="navigation_server",
+        name="navigation_server",
         output="screen",
-        parameters=[use_sim_time],
+        parameters=[
+            os.path.join(nav_share, "params", "navigation_server.yaml"),
+            use_sim_time,
+        ],
     )
     save_location = Node(
         package=nav_pkg,
@@ -187,7 +190,7 @@ def generate_launch_description():
                 period=12.0,
                 actions=[
                     rviz,
-                    nav_to_pose,
+                    navigation_server,
                     save_location,
                     door_detector,
                     costmap_reconfig_server,

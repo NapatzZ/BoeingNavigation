@@ -11,7 +11,7 @@ Brings up, in order:
   1. hardware + complete-robot state publisher  (skuba_bringup)
   2. nav2 navigation stack + AMCL localization    (nav2_bringup_launch.py)
   3. RViz                                         (nav2_bringup rviz)
-  4. service nodes: nav_to_pose, save_location, door_detector,
+  4. service nodes: navigation_server, save_location, door_detector,
      costmap_reconfig_server, following_server
 
     ros2 launch skuba_navigation cheesecake_resturant.launch.py
@@ -92,8 +92,12 @@ def generate_launch_description():
     )
 
     # 4. Service nodes
-    nav_to_pose = Node(
-        package=nav_pkg, executable="nav_to_pose", name="nav_to_pose", output="screen"
+    navigation_server = Node(
+        package=nav_pkg,
+        executable="navigation_server",
+        name="navigation_server",
+        output="screen",
+        parameters=[os.path.join(nav_share, "params", "navigation_server.yaml")],
     )
     save_location = Node(
         package=nav_pkg,
@@ -133,7 +137,7 @@ def generate_launch_description():
                 period=12.0,
                 actions=[
                     rviz,
-                    nav_to_pose,
+                    navigation_server,
                     save_location,
                     door_detector,
                     costmap_reconfig_server,
