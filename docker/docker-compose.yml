@@ -59,7 +59,7 @@ services:
       - /dev:/dev
       - ../.:/root/skuba_ws/src/skuba_navigation
       - ../../skuba_bringup:/root/skuba_ws/src/skuba_bringup
-      - ../../skuba_interface:/root/skuba_ws/src/skuba_interfaces
+      - ../../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces
       - ../../skuba_docker/config/system_manifest.yaml:/root/system_manifest.yaml:ro
       - ../../skuba_description:/root/skuba_ws/src/skuba_description
       - ../../skuba_bringup/drivers/sllidar_ros2:/root/skuba_ws/src/sllidar_ros2

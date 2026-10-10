@@ -5,8 +5,8 @@ Maps follow the maps/<category>/<name>.{pgm,yaml} layout (see map_saver.py).
 Only the nav2 occupancy image (.pgm) is edited; a SLAM Toolbox .posegraph next
 to it is left as recorded, so re-serializing from SLAM would undo the edits.
 
-Locations are the shared share/saved_pose.yaml that nav_to_pose reads, in the
-same schema save_location writes:
+Locations are the shared share/saved_pose.yaml that navigation_server's
+LocationStore reads (re-read on change), in the schema save_location writes:
 
     positions:
       <name>:
@@ -16,6 +16,7 @@ same schema save_location writes:
           orientation: {x, y, z, w}
 """
 
+import copy
 import os
 import shutil
 import time
@@ -31,6 +32,8 @@ FREE = 254
 OCCUPIED = 0
 UNKNOWN = 205
 
+_WHITESPACE = b" \t\n\r\v\f"
+
 
 # ── PGM ──────────────────────────────────────────────────────────────────
 
@@ -39,13 +42,13 @@ def _pgm_tokens(data, count, pos=0):
     """Read `count` whitespace-separated header tokens, skipping # comments."""
     tokens = []
     while len(tokens) < count:
-        while data[pos:pos + 1].isspace():
+        while pos < len(data) and data[pos] in _WHITESPACE:
             pos += 1
-        if data[pos:pos + 1] == b"#":
+        if data[pos] == ord("#"):
             pos = data.index(b"\n", pos) + 1
             continue
         start = pos
-        while pos < len(data) and not data[pos:pos + 1].isspace():
+        while pos < len(data) and data[pos] not in _WHITESPACE:
             pos += 1
         tokens.append(data[start:pos])
     return tokens, pos + 1  # exactly one whitespace byte before the raster
@@ -60,7 +63,8 @@ def read_pgm(path):
     if int(maxval) > 255:
         raise ValueError(f"{path}: only 8-bit PGM is supported")
     width, height = int(width), int(height)
-    pixels = bytearray(data[pos:pos + width * height])
+    end = pos + width * height
+    pixels = bytearray(data[pos:end])
     if len(pixels) != width * height:
         raise ValueError(f"{path}: truncated raster")
     return width, height, pixels
@@ -181,17 +185,26 @@ def load_locations(yaml_path):
     for name, entry in (data.get("positions") or {}).items():
         pos = entry["pose"]["position"]
         q = SimpleNamespace(**entry["pose"]["orientation"])
-        locations.append({
-            "name": str(name),
-            "x": float(pos["x"]),
-            "y": float(pos["y"]),
-            "yaw": quaternion_to_yaw(q),
-        })
+        locations.append(
+            {
+                "name": str(name),
+                "x": float(pos["x"]),
+                "y": float(pos["y"]),
+                "yaw": quaternion_to_yaw(q),
+            }
+        )
     return locations
 
 
-def locations_to_yaml_data(locations):
-    """[{name, x, y, yaw}] -> the saved_pose.yaml dict nav_to_pose parses."""
+def locations_to_yaml_data(locations, existing=None):
+    """
+    [{name, x, y, yaw}] -> the saved_pose.yaml dict LocationStore parses.
+
+    `existing` is the file's current dict. Locations kept in the editor keep
+    every field the editor does not own (e.g. save_location's header.side);
+    only the pose is replaced. Names missing from `locations` are dropped.
+    """
+    old = ((existing or {}).get("positions")) or {}
     positions = {}
     for loc in locations:
         name = str(loc["name"]).strip()
@@ -200,24 +213,28 @@ def locations_to_yaml_data(locations):
         if name in positions:
             raise ValueError(f"duplicate location name: {name}")
         z, w = yaw_to_quaternion(float(loc["yaw"]))
-        positions[name] = {
-            "header": {"frame_id": "map"},
-            "pose": {
-                "position": {"x": float(loc["x"]), "y": float(loc["y"]), "z": 0.0},
-                "orientation": {"x": 0.0, "y": 0.0, "z": z, "w": w},
-            },
+        entry = copy.deepcopy(old.get(name)) or {}
+        entry.setdefault("header", {}).setdefault("frame_id", "map")
+        entry["pose"] = {
+            "position": {"x": float(loc["x"]), "y": float(loc["y"]), "z": 0.0},
+            "orientation": {"x": 0.0, "y": 0.0, "z": z, "w": w},
         }
-    return {"positions": positions}
+        positions[name] = entry
+    data = dict(existing or {})
+    data["positions"] = positions
+    return data
 
 
 def save_locations(yaml_path, locations):
-    """Replace saved_pose.yaml with `locations`, timestamped backup first."""
-    data = locations_to_yaml_data(locations)
+    """Write `locations` to saved_pose.yaml, timestamped backup first."""
     yaml_path = Path(yaml_path)
+    existing = {}
     if yaml_path.exists():
+        existing = yaml.safe_load(yaml_path.read_text()) or {}
         stamp = time.strftime("%Y%m%d_%H%M%S")
         shutil.copy2(yaml_path, yaml_path.with_name(f"{yaml_path.name}.{stamp}.bak"))
+    data = locations_to_yaml_data(locations, existing)
     tmp = yaml_path.with_name(yaml_path.name + ".tmp")
-    tmp.write_text(yaml.safe_dump(data))
-    os.replace(tmp, yaml_path)  # never leave nav_to_pose a half-written file
+    tmp.write_text(yaml.safe_dump(data, default_flow_style=False))
+    os.replace(tmp, yaml_path)  # readers never see a half-written file
     return str(yaml_path)

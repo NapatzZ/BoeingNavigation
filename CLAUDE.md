@@ -9,7 +9,7 @@ Guidance for Claude Code (and any AI agent) working in this repository.
 Concretely, you must NOT:
 
 - Set `run_blackbox: false` (or remove the `run_blackbox: true` line) in any
-  `.gitlab-ci.yml` that includes `robotcitizens/.../software-team/skuba-ci`
+  `.gitlab-ci.yml` that includes `robotcitizens/.../software-team/skuba_ci`
   `/templates/ros-ament-python.yml`.
 - Change the `run_blackbox` input's `default` in
   `templates/ros-ament-python.yml`, or edit its rules so `test:blackbox` /

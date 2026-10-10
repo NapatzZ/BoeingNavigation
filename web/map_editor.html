@@ -124,7 +124,7 @@
   </section>
   <section>
     <h2>Locations</h2>
-    <p id="posePath">Shared by every map, read by nav_to_pose.</p>
+    <p id="posePath">Shared by every map, read by navigation_server.</p>
     <div class="row">
       <button id="saveLocs" class="primary" disabled>Save locations</button>
       <button id="reloadLocs">Reload</button>
@@ -510,7 +510,7 @@ async function saveMap() {
 async function loadLocs() {
   try {
     const r = await api("/api/locations"); st.locs = r.locations; st.sel = -1; st.locsDirty = false;
-    $("posePath").textContent = `${r.path} — shared by every map, read by nav_to_pose.`;
+    $("posePath").textContent = `${r.path} — shared by every map, read by navigation_server.`;
     renderLocList(); draw(); updateUi();
   } catch (e) { toast(`Locations failed: ${e.message}`, true); }
 }
