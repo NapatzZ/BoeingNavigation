@@ -72,7 +72,7 @@ def generate_launch_description():
                 "launch_robot_state_publisher"
             ),
             # Mapping is lidar-only.
-            "launch_camera": "false",
+            "launch_camera": "true",
             # The xbox pad goes through twist_mux (joystick lane, priority 100)
             # instead of straight onto /cmd_vel, so the e_stop lock stops it too.
             "teleop_cmd_vel_topic": "cmd_vel_joy",
