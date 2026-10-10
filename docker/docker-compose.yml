@@ -1,12 +1,12 @@
 # Equivalent of:
-#   docker pull napatku/skuba-navigation:latest
+#   docker pull registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
 #   docker run -it --name skuba_nav --network host --privileged \
 #     -v /dev:/dev \
 #     -v .../skuba_navigation:/root/skuba_ws/src/skuba_navigation \
 #     -v .../skuba_bringup:/root/skuba_ws/src/skuba_bringup \
 #     -v .../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces \
 #     -v .../skuba_description:/root/skuba_ws/src/skuba_description \
-#     napatku/skuba-navigation:latest
+#     registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
 #
 # Usage (run from this folder, which sits in skuba_ws/src next to the other pkgs):
 #   docker compose up
@@ -20,7 +20,10 @@
 # the workspace can live anywhere — no hard-coded /home/skuba path needed.
 services:
   skuba_nav:
-    image: napatku/skuba-navigation:latest
+    image: registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
+    build:
+      context: .
+      dockerfile: dockerfile
     container_name: skuba-nav
     healthcheck:
       # Container readiness, NOT task readiness: "the workspace is built and the

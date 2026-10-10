@@ -160,7 +160,7 @@ docker compose up -d
 docker exec -it skuba-nav bash
 ```
 
-Runs `napatku/skuba-navigation:latest` (built from `docker/dockerfile`, based on
+Runs `registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest` (built from `docker/dockerfile`, based on
 `osrf/ros:humble-desktop-full`) with `--network host`, `ROS_DOMAIN_ID=67`,
 `privileged`, and USB passthrough for the LiDAR and kobuki base.
 
@@ -178,6 +178,18 @@ cd /root/skuba_ws
 colcon build --packages-select skuba_navigation
 source install/setup.bash
 ```
+
+## Foxglove
+
+The container starts a Foxglove Bridge watcher by default (`docker/entrypoint.sh`):
+every SKUBA container does, and they share one port, so the robot has a single
+monitoring URL, `ws://<robot-ip>:8765`, whichever subsystems are up. Use it
+instead of RViz on the headless robot (`use_rviz:=false`).
+
+Open Foxglove Studio (desktop app or app.foxglove.dev), connect to
+`ws://<robot-ip>:8765`, and import `docker/foxglove/skuba_navigation.json`
+(**Layouts → Import from file...**). See `docker/foxglove/README.md` for what
+the layout shows and how to regenerate it. `FOXGLOVE=0` opts the container out.
 
 ## Build (native)
 

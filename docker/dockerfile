@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y \
     ros-humble-teleop-twist-joy \
     ros-humble-twist-mux \
     ros-humble-spatio-temporal-voxel-layer \
+    ros-humble-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
 
 # ===============================
