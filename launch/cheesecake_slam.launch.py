@@ -49,15 +49,11 @@ def generate_launch_description():
             default_value="true",
             description="With sim:=true: open the Gazebo window.",
         ),
-        # Unlike cheesecake_nav.launch.py this defaults to ON: a mapping session
-        # normally runs without the manipulation stack, and without an RSP
-        # there is no base_link -> laser, so SLAM Toolbox drops every scan.
-        # Set false only if move_group.launch.py is already running its own.
         DeclareLaunchArgument(
             "launch_robot_state_publisher",
             default_value="true",
-            description="skuba_bringup's robot_state_publisher. Turn off "
-            "when the manipulation stack already runs one.",
+            description="skuba_bringup's robot_state_publisher, the only one "
+            "on the robot (manipulation runs with_bringup:=true).",
         ),
         DeclareLaunchArgument(
             "slam_params_file",
