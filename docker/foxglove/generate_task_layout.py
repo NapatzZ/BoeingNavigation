@@ -115,4 +115,6 @@ layout = L.Layout(
 )
 
 if __name__ == "__main__":
-    print(layout.to_json())
+    from studio_layout import to_studio_json
+
+    print(to_studio_json(layout))
