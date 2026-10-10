@@ -76,10 +76,12 @@ def make_handler(maps_root, poses_path, html_path):
             elif url.path == "/api/map":
                 self._guard(lambda: self._map(query["id"][0]))
             elif url.path == "/api/locations":
-                self._guard(lambda: {
-                    "path": str(poses_path),
-                    "locations": editor.load_locations(poses_path),
-                })
+                self._guard(
+                    lambda: {
+                        "path": str(poses_path),
+                        "locations": editor.load_locations(poses_path),
+                    }
+                )
             else:
                 self._send(404, {"error": "not found"})
 
@@ -88,10 +90,13 @@ def make_handler(maps_root, poses_path, html_path):
             if url.path == "/api/map":
                 self._guard(self._save_map)
             elif url.path == "/api/locations":
-                self._guard(lambda: {
-                    "saved": editor.save_locations(
-                        poses_path, self._body()["locations"])
-                })
+                self._guard(
+                    lambda: {
+                        "saved": editor.save_locations(
+                            poses_path, self._body()["locations"]
+                        )
+                    }
+                )
             else:
                 self._send(404, {"error": "not found"})
 
@@ -104,8 +109,8 @@ def make_handler(maps_root, poses_path, html_path):
             body = self._body()
             pixels = base64.b64decode(body["pixels"])
             saved = editor.save_map_pixels(
-                maps_root, body["id"], int(body["width"]), int(body["height"]),
-                pixels)
+                maps_root, body["id"], int(body["width"]), int(body["height"]), pixels
+            )
             return {"saved": saved}
 
     return Handler
@@ -119,7 +124,8 @@ def main():
 
     maps_root, poses_path, html_path = resolve_paths()
     server = ThreadingHTTPServer(
-        (args.host, args.port), make_handler(maps_root, poses_path, html_path))
+        (args.host, args.port), make_handler(maps_root, poses_path, html_path)
+    )
     print(f"Map editor: http://{args.host}:{args.port}")
     print(f"  maps:      {maps_root}")
     print(f"  locations: {poses_path}")

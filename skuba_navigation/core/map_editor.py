@@ -35,17 +35,23 @@ UNKNOWN = 205
 # ── PGM ──────────────────────────────────────────────────────────────────
 
 
+def _byte(data, pos):
+    """Return the one-byte slice at `pos` (empty past the end)."""
+    end = pos + 1
+    return data[pos:end]
+
+
 def _pgm_tokens(data, count, pos=0):
     """Read `count` whitespace-separated header tokens, skipping # comments."""
     tokens = []
     while len(tokens) < count:
-        while data[pos:pos + 1].isspace():
+        while _byte(data, pos).isspace():
             pos += 1
-        if data[pos:pos + 1] == b"#":
+        if _byte(data, pos) == b"#":
             pos = data.index(b"\n", pos) + 1
             continue
         start = pos
-        while pos < len(data) and not data[pos:pos + 1].isspace():
+        while pos < len(data) and not _byte(data, pos).isspace():
             pos += 1
         tokens.append(data[start:pos])
     return tokens, pos + 1  # exactly one whitespace byte before the raster
@@ -60,7 +66,8 @@ def read_pgm(path):
     if int(maxval) > 255:
         raise ValueError(f"{path}: only 8-bit PGM is supported")
     width, height = int(width), int(height)
-    pixels = bytearray(data[pos:pos + width * height])
+    end = pos + width * height
+    pixels = bytearray(data[pos:end])
     if len(pixels) != width * height:
         raise ValueError(f"{path}: truncated raster")
     return width, height, pixels
@@ -181,12 +188,14 @@ def load_locations(yaml_path):
     for name, entry in (data.get("positions") or {}).items():
         pos = entry["pose"]["position"]
         q = SimpleNamespace(**entry["pose"]["orientation"])
-        locations.append({
-            "name": str(name),
-            "x": float(pos["x"]),
-            "y": float(pos["y"]),
-            "yaw": quaternion_to_yaw(q),
-        })
+        locations.append(
+            {
+                "name": str(name),
+                "x": float(pos["x"]),
+                "y": float(pos["y"]),
+                "yaw": quaternion_to_yaw(q),
+            }
+        )
     return locations
 
 

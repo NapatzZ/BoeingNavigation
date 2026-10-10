@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from skuba_navigation.core import map_editor as ed
-from skuba_navigation.core.nav_to_pose_logic import load_saved_positions
+from skuba_navigation.core.navigation.location_store import LocationStore
 
 
 def make_map(root, map_id="30_home/home", width=4, height=3, origin=(-1.0, -2.0, 0.0)):
@@ -15,11 +15,19 @@ def make_map(root, map_id="30_home/home", width=4, height=3, origin=(-1.0, -2.0,
     name = (root / map_id).name
     pixels = bytearray(range(width * height))
     ed.write_pgm(folder / f"{name}.pgm", width, height, pixels)
-    (folder / f"{name}.yaml").write_text(yaml.safe_dump({
-        "image": f"{name}.pgm", "mode": "trinary", "resolution": 0.05,
-        "origin": list(origin), "negate": 0,
-        "occupied_thresh": 0.65, "free_thresh": 0.25,
-    }))
+    (folder / f"{name}.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "image": f"{name}.pgm",
+                "mode": "trinary",
+                "resolution": 0.05,
+                "origin": list(origin),
+                "negate": 0,
+                "occupied_thresh": 0.65,
+                "free_thresh": 0.25,
+            }
+        )
+    )
     return pixels
 
 
@@ -67,26 +75,33 @@ def test_save_rejects_size_change(tmp_path):
 def test_pixel_world_round_trip():
     origin, res, height = [-1.0, -2.0, 0.0], 0.05, 3
     # bottom-left cell centre sits half a cell inside the origin
-    assert ed.pixel_to_world(0, 2, height, res, origin) == pytest.approx((-0.975, -1.975))
+    assert ed.pixel_to_world(0, 2, height, res, origin) == pytest.approx(
+        (-0.975, -1.975)
+    )
     x, y = ed.pixel_to_world(3, 0, height, res, origin)
     assert ed.world_to_pixel(x, y, height, res, origin) == pytest.approx((3, 0))
 
 
-def test_locations_round_trip_matches_nav_to_pose_schema(tmp_path):
+def test_locations_round_trip_matches_navigation_server_schema(tmp_path):
     path = tmp_path / "saved_pose.yaml"
-    locs = [{"name": "kitchen", "x": 1.5, "y": -0.25, "yaw": math.pi / 2},
-            {"name": "door", "x": 0.0, "y": 3.0, "yaw": -2.0}]
+    locs = [
+        {"name": "kitchen", "x": 1.5, "y": -0.25, "yaw": math.pi / 2},
+        {"name": "door", "x": 0.0, "y": 3.0, "yaw": -2.0},
+    ]
     ed.save_locations(path, locs)
     back = {loc["name"]: loc for loc in ed.load_locations(path)}  # dump sorts names
     assert set(back) == {"kitchen", "door"}
     for want in locs:
         got = back[want["name"]]
         assert (got["x"], got["y"], got["yaw"]) == pytest.approx(
-            (want["x"], want["y"], want["yaw"]))
-    # the file nav_to_pose actually parses
-    poses = load_saved_positions(path)
-    assert poses["kitchen"].header.frame_id == "map"
-    assert poses["kitchen"].pose.orientation.z == pytest.approx(math.sin(math.pi / 4))
+            (want["x"], want["y"], want["yaw"])
+        )
+    # the file navigation_server actually parses
+    kitchen = LocationStore(path).get("kitchen")
+    assert kitchen.frame_id == "map"
+    assert (kitchen.pose.x, kitchen.pose.y, kitchen.pose.yaw) == pytest.approx(
+        (1.5, -0.25, math.pi / 2)
+    )
 
 
 def test_save_locations_backs_up_previous_file(tmp_path):
@@ -96,10 +111,16 @@ def test_save_locations_backs_up_previous_file(tmp_path):
     assert len(list(tmp_path.glob("saved_pose.yaml.*.bak"))) == 1
 
 
-@pytest.mark.parametrize("locs", [
-    [{"name": " ", "x": 0, "y": 0, "yaw": 0}],
-    [{"name": "a", "x": 0, "y": 0, "yaw": 0}, {"name": "a", "x": 1, "y": 1, "yaw": 0}],
-])
+@pytest.mark.parametrize(
+    "locs",
+    [
+        [{"name": " ", "x": 0, "y": 0, "yaw": 0}],
+        [
+            {"name": "a", "x": 0, "y": 0, "yaw": 0},
+            {"name": "a", "x": 1, "y": 1, "yaw": 0},
+        ],
+    ],
+)
 def test_save_locations_rejects_blank_or_duplicate_names(tmp_path, locs):
     with pytest.raises(ValueError):
         ed.save_locations(tmp_path / "saved_pose.yaml", locs)
