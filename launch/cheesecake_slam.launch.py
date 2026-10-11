@@ -28,6 +28,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
@@ -60,6 +61,18 @@ def generate_launch_description():
             default_value=os.path.join(nav_share, "params", "slam_params.yaml"),
             description="SLAM Toolbox parameters file (mapping mode)",
         ),
+        DeclareLaunchArgument(
+            "use_rviz",
+            default_value="true",
+            description="Start RViz (on the robot's own display). false in a "
+            "container with no display.",
+        ),
+        DeclareLaunchArgument(
+            "launch_bringup",
+            default_value="true",
+            description="Include skuba_bringup. false when the robot (or the "
+            "Gazebo robot) is already up in its own container (skuba_robot).",
+        ),
     ]
 
     # 1. Hardware + complete-robot state publisher
@@ -77,6 +90,7 @@ def generate_launch_description():
             # instead of straight onto /cmd_vel, so the e_stop lock stops it too.
             "teleop_cmd_vel_topic": "cmd_vel_joy",
         }.items(),
+        condition=IfCondition(LaunchConfiguration("launch_bringup")),
     )
 
     # 2. SLAM Toolbox + nav2 + twist_mux + e-stop + RViz
@@ -90,8 +104,8 @@ def generate_launch_description():
             "slam": "True",
             "use_sim_time": sim,
             "slam_params_file": LaunchConfiguration("slam_params_file"),
-            # Always on: it pops up on the robot's own display (DISPLAY=:1).
-            "use_rviz": "true",
+            # On by default: it pops up on the robot's own display (DISPLAY=:1).
+            "use_rviz": LaunchConfiguration("use_rviz"),
         }.items(),
     )
 
