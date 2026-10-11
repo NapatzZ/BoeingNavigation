@@ -186,10 +186,9 @@ every SKUBA container does, and they share one port, so the robot has a single
 monitoring URL, `ws://<robot-ip>:8765`, whichever subsystems are up. Use it
 instead of RViz on the headless robot (`use_rviz:=false`).
 
-Open Foxglove Studio (desktop app or app.foxglove.dev), connect to
-`ws://<robot-ip>:8765`, and import `docker/foxglove/skuba_navigation.json`
-(**Layouts → Import from file...**). See `docker/foxglove/README.md` for what
-the layout shows and how to regenerate it. `FOXGLOVE=0` opts the container out.
+The Foxglove layout for the whole task, navigation included, lives in
+skuba_state: `docker/foxglove/skuba_task.json`. `FOXGLOVE=0` opts the container
+out.
 
 ## Build (native)
 
