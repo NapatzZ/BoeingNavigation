@@ -23,9 +23,11 @@ amcl:
     laser_min_range: -1.0
     laser_model_type: "likelihood_field"
     max_beams: 60
-    # Increased particles for better localization accuracy at higher speed
-    max_particles: 3000
-    min_particles: 750
+    # Nav2 defaults. Was 3000/750 for accuracy at higher speed; lowered to cut
+    # AMCL CPU (cost scales with particles x max_beams). Raise again if the
+    # pose jumps or drifts while driving.
+    max_particles: 2000
+    min_particles: 500
     odom_frame_id: "odom"
     pf_err: 0.05
     pf_z: 0.99
