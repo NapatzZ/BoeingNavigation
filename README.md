@@ -186,14 +186,15 @@ source install/setup.bash
 
 ## Foxglove
 
-The container starts a Foxglove Bridge watcher by default (`docker/entrypoint.sh`):
-every SKUBA container does, and they share one port, so the robot has a single
+The container can start a Foxglove Bridge watcher (`docker/entrypoint.sh`). It is
+off by default (it costs CPU on the robot): `FOXGLOVE=1 docker compose up -d`.
+Every SKUBA container has one, and they share one port, so the robot has a single
 monitoring URL, `ws://<robot-ip>:8765`, whichever subsystems are up. Use it
 instead of RViz on the headless robot (`use_rviz:=false`).
 
 The Foxglove layout for the whole task, navigation included, lives in
-skuba_state: `docker/foxglove/skuba_task.json`. `FOXGLOVE=0` opts the container
-out.
+skuba_state: `docker/foxglove/skuba_task.json`. `FOXGLOVE=0` (the default) keeps
+it off.
 
 ## Build (native)
 

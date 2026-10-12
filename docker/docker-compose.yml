@@ -54,6 +54,7 @@ services:
     network_mode: host
     environment:
       - ROS_DOMAIN_ID=67
+      - FOXGLOVE=${FOXGLOVE:-0}  # foxglove_bridge off for now; FOXGLOVE=1 docker compose up -d to turn on
       - DISPLAY=:1
       - XAUTHORITY=
     devices:
