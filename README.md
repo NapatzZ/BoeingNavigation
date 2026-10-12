@@ -30,6 +30,11 @@ ros2 launch skuba_navigation cheesecake_nav.launch.py map:=/path/to/map.yaml
 container (`skuba_robot`); `cheesecake_slam.launch.py use_rviz:=false` for a
 container with no display.
 
+All three launches open RViz with this repo's `rviz/cheesecake_nav.rviz`
+(nav2's default view, with QoS matched to each topic). Its LaserScan display is
+off by default: with it on, RViz deadlocked inside tf2 within a second of a
+2D Pose Estimate. Tick it on when you need the scan.
+
 ### 2. `cheesecake_resturant.launch.py` — AMCL localization, restaurant map
 
 For the restaurant task. Same AMCL-based localization as `cheesecake_nav.launch.py`

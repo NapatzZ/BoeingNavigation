@@ -82,7 +82,10 @@ def generate_launch_description():
                 "launch",
                 "rviz_launch.py",
             )
-        )
+        ),
+        launch_arguments={
+            "rviz_config": os.path.join(nav_share, "rviz", "cheesecake_nav.rviz"),
+        }.items(),
     )
 
     # 4. Service nodes
