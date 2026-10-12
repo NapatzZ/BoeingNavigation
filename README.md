@@ -25,6 +25,11 @@ ros2 launch skuba_navigation cheesecake_nav.launch.py map:=/path/to/map.yaml
 | `map` | `maps/30_skuba_home/skuba_home.yaml` |
 | `params_file` | `params/rcj_param.yaml` |
 
+`launch_bringup:=false` (also on `cheesecake_slam.launch.py`) skips
+`skuba_bringup` for when the robot -- or Gazebo -- is already up in its own
+container (`skuba_robot`); `cheesecake_slam.launch.py use_rviz:=false` for a
+container with no display.
+
 ### 2. `cheesecake_resturant.launch.py` — AMCL localization, restaurant map
 
 For the restaurant task. Same AMCL-based localization as `cheesecake_nav.launch.py`

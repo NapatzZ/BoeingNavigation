@@ -19,6 +19,11 @@ In Gazebo (skuba_bringup sim:=true brings the simulated robot up instead of
 the drivers; everything runs on use_sim_time):
 
     ros2 launch skuba_navigation cheesecake_nav.launch.py sim:=true map:=<map.yaml>
+
+Navigation only, against a robot another container already brought up
+(skuba_robot: the hardware container runs skuba_bringup or Gazebo):
+
+    ros2 launch skuba_navigation cheesecake_nav.launch.py launch_bringup:=false
 """
 
 import os
@@ -75,6 +80,13 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_rviz", default_value="true", description="Start RViz"
         ),
+        DeclareLaunchArgument(
+            "launch_bringup",
+            default_value="true",
+            description="Include skuba_bringup. false when the robot (or the "
+            "Gazebo robot) is already up in its own container and this one only "
+            "runs navigation on the same ROS_DOMAIN_ID (skuba_robot).",
+        ),
     ]
     use_sim_time = {"use_sim_time": ParameterValue(sim, value_type=bool)}
 
@@ -95,6 +107,7 @@ def generate_launch_description():
             # instead of straight onto /cmd_vel, so the e_stop lock stops it too.
             "teleop_cmd_vel_topic": "cmd_vel_joy",
         }.items(),
+        condition=IfCondition(LaunchConfiguration("launch_bringup")),
     )
 
     # 2. nav2
