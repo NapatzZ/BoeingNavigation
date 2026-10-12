@@ -27,7 +27,7 @@ fi
 # FOXGLOVE=0 turns it off here. Background only: it never delays this
 # container's command. An image built before foxglove_bridge was added gets it
 # apt-installed once (needs network). Log: /tmp/foxglove_bridge.log.
-if [ "${FOXGLOVE:-1}" != "0" ]; then
+if [ "${FOXGLOVE:-0}" != "0" ]; then
   (
     set +e  # a bridge that exits (port taken, crash) must not end the watcher
     port="${FOXGLOVE_PORT:-8765}"
@@ -44,7 +44,7 @@ if [ "${FOXGLOVE:-1}" != "0" ]; then
       sleep 10
     done
   ) > /tmp/foxglove_bridge.log 2>&1 &
-  echo "[entrypoint] foxglove: ws://<robot>:${FOXGLOVE_PORT:-8765} (shared by all containers; FOXGLOVE=0 to opt out)"
+  echo "[entrypoint] foxglove: ws://<robot>:${FOXGLOVE_PORT:-8765} (FOXGLOVE=1 to turn on)"
 fi
 
 # Run whatever compose passes as `command:` (default CMD is bash).
