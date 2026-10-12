@@ -31,9 +31,13 @@ class EmergencyStopNode(Node):
     so the robot stops. This replaces the old approach of spamming zero Twist on
     cmd_vel directly — twist_mux now owns /cmd_vel.
 
+    The same latched state also goes out on /skuba/nav/e_stop, for everything
+    that is not twist_mux: skuba-state stops its tree when it reads True.
+
     Parameters
     ----------
     lock_topic: str - twist_mux lock topic to raise. Default 'e_stop'.
+    state_topic: str - the state for other packages. Default '/skuba/nav/e_stop'.
 
     """
 
@@ -42,6 +46,8 @@ class EmergencyStopNode(Node):
 
         self.declare_parameter("lock_topic", "e_stop")
         lock_topic: str = self.get_parameter("lock_topic").value
+        self.declare_parameter("state_topic", "/skuba/nav/e_stop")
+        state_topic: str = self.get_parameter("state_topic").value
 
         self._latch = EstopLatch()
         self._shutdown = False
@@ -62,9 +68,10 @@ class EmergencyStopNode(Node):
         )
 
         self._lock_pub = self.create_publisher(Bool, lock_topic, lock_qos)
+        self._state_pub = self.create_publisher(Bool, state_topic, lock_qos)
         # Publish the initial "unlocked" state so twist_mux does not treat a
         # missing message as a lock.
-        self._lock_pub.publish(Bool(data=False))
+        self._publish(False)
 
         self._sub = self.create_subscription(
             DigitalInputEvent,
@@ -85,7 +92,7 @@ class EmergencyStopNode(Node):
     # ------------------------------------------------------------------
     def _digital_input_cb(self, msg: DigitalInputEvent) -> None:
         if msg.values[0] and self._latch.trigger():
-            self._lock_pub.publish(Bool(data=True))  # raise lock immediately
+            self._publish(True)  # raise lock immediately
             self.get_logger().warn(
                 "[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised."
             )
@@ -97,7 +104,7 @@ class EmergencyStopNode(Node):
         # no timeout, so the rate only needs to cover late subscribers.
         while not self._shutdown:
             if self._latch.is_active:
-                self._lock_pub.publish(Bool(data=True))
+                self._publish(True)
             time.sleep(0.1)
 
     # ------------------------------------------------------------------
@@ -107,8 +114,13 @@ class EmergencyStopNode(Node):
         if self._latch.is_active:
             # Keep the lock raised on shutdown — never silently release an e-stop.
             for _ in range(5):
-                self._lock_pub.publish(Bool(data=True))
+                self._publish(True)
         super().destroy_node()
+
+    # ------------------------------------------------------------------
+    def _publish(self, pressed: bool) -> None:
+        self._lock_pub.publish(Bool(data=pressed))
+        self._state_pub.publish(Bool(data=pressed))
 
 
 # ----------------------------------------------------------------------

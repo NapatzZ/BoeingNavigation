@@ -7,6 +7,8 @@ Brings up, in order:
   2. SLAM Toolbox (mapping mode) + nav2 + twist_mux + e-stop + RViz (always on,
      on the robot's display)
                                                   (nav2_slam_bringup_launch.py)
+  3. door_detector, like the other cheesecake launches (skuba-state's start
+     signal)
 
 Drive the robot with the xbox pad (or click Nav2 goals in RViz), then save the
 map from a second shell:
@@ -31,6 +33,8 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Time
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -109,6 +113,15 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 3. Start signal: off until skuba-state switches it on
+    door_detector = Node(
+        package="skuba_navigation",
+        executable="door_detector",
+        name="door_detector",
+        output="screen",
+        parameters=[{"use_sim_time": ParameterValue(sim, value_type=bool)}],
+    )
+
     return LaunchDescription(
         [
             *args,
@@ -116,5 +129,6 @@ def generate_launch_description():
             cheesecake_bringup,
             # SLAM after the base/lidar/RSP are up, so its first scans have TF
             TimerAction(period=5.0, actions=[slam]),
+            TimerAction(period=12.0, actions=[door_detector]),
         ]
     )

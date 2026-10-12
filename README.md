@@ -93,10 +93,10 @@ Executables registered in `setup.py`:
 | --- | --- |
 | `navigation_server` | All base-motion actions + location/costmap services (see below) |
 | `save_location` | Writes the current pose into `share/saved_pose.yaml` |
-| `door_detector` | Reports whether the door ahead is open |
+| `door_detector` | Reports whether the door ahead is open (`/skuba/nav/door_status`, `std_msgs/Bool`, only while switched on) |
 | `costmap_reconfig_server` | Applies costmap presets from `params/costmap_dynamic_config.yaml` at runtime |
 | `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
-| `emergency_stop` | Publishes the twist_mux e-stop lock |
+| `emergency_stop` | Publishes the twist_mux e-stop lock (`e_stop`), and the same latched state on `/skuba/nav/e_stop` for skuba-state |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
 | `map_editor` | Web map editor (`ros2 run skuba_navigation map_editor`, then http://<robot>:8090): paint free/wall/unknown, clean specks/holes, place named locations into `share/saved_pose.yaml` |
