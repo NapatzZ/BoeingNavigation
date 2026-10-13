@@ -189,6 +189,11 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(
                     os.path.join(launch_dir, "rviz_launch.py")
                 ),
+                launch_arguments={
+                    "rviz_config": os.path.join(
+                        nav_share, "rviz", "cheesecake_nav.rviz"
+                    ),
+                }.items(),
                 condition=IfCondition(use_rviz),
             ),
             # On by default: this is the measured laser mount, while

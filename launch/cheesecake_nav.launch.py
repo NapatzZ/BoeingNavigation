@@ -135,7 +135,10 @@ def generate_launch_description():
                 "rviz_launch.py",
             )
         ),
-        launch_arguments={"use_sim_time": sim}.items(),
+        launch_arguments={
+            "use_sim_time": sim,
+            "rviz_config": os.path.join(nav_share, "rviz", "cheesecake_nav.rviz"),
+        }.items(),
         condition=IfCondition(LaunchConfiguration("use_rviz")),
     )
 
