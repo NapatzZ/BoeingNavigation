@@ -33,6 +33,7 @@ setup(
         # automatically and nothing silently goes missing from the install.
         ("share/" + package_name, glob("launch/*.py")),
         ("share/" + package_name + "/params", glob("params/*.yaml")),
+        ("share/" + package_name + "/rviz", glob("rviz/*.rviz")),
         ("share/" + package_name + "/behavior_trees", glob("behavior_trees/*.xml")),
         ("share/" + package_name + "/web", glob("web/*.html")),
     ]
