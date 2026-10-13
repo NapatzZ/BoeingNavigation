@@ -1,4 +1,17 @@
 positions:
+  bed_room:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.020523349041864918
+        x: 0.0
+        y: 0.0
+        z: 0.9997893738903738
+      position:
+        x: 2.454873516265795
+        y: -6.697270404726353
+        z: 0.0
   dining_table:
     header:
       frame_id: map
@@ -11,6 +24,32 @@ positions:
       position:
         x: 2.007300254529691
         y: -3.523471189446857
+        z: 0.0
+  instruction_point:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.665066169689914
+        x: 0.0
+        y: 0.0
+        z: 0.7467844333768523
+      position:
+        x: 0.9075874088553872
+        y: 0.9798618682441291
+        z: 0.0
+  kitchen:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.9999799028590086
+        x: 0.0
+        y: 0.0
+        z: 0.006339864201038437
+      position:
+        x: 0.08493237986161772
+        y: -4.43466583372431
         z: 0.0
   shelf:
     header:
