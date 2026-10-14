@@ -12,6 +12,19 @@ positions:
         x: 2.454873516265795
         y: -6.697270404726353
         z: 0.0
+  cabinet:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.043939704272949034
+        x: 0.0
+        y: 0.0
+        z: -0.9990341847946975
+      position:
+        x: 0.2529683715303115
+        y: -0.6464593184035579
+        z: 0.0
   dining_table:
     header:
       frame_id: map
@@ -30,13 +43,13 @@ positions:
       frame_id: map
     pose:
       orientation:
-        w: 0.665066169689914
+        w: 0.6971957498060267
         x: 0.0
         y: 0.0
-        z: 0.7467844333768523
+        z: 0.7168808035178597
       position:
-        x: 0.9075874088553872
-        y: 0.9798618682441291
+        x: 1.034743740264289
+        y: 0.8793571155442832
         z: 0.0
   kitchen:
     header:
@@ -50,6 +63,32 @@ positions:
       position:
         x: 0.08493237986161772
         y: -4.43466583372431
+        z: 0.0
+  living_room:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.6540269505974327
+        x: 0.0
+        y: 0.0
+        z: -0.7564712472343039
+      position:
+        x: 1.2479923430612614
+        y: -5.175373182426492
+        z: 0.0
+  office:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.9993371768713867
+        x: 0.0
+        y: 0.0
+        z: 0.03640339163768845
+      position:
+        x: 0.07416063126499786
+        y: -3.354469646733058
         z: 0.0
   shelf:
     header:
