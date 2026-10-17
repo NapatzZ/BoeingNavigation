@@ -17,13 +17,13 @@ positions:
       frame_id: map
     pose:
       orientation:
-        w: 0.043939704272949034
+        w: 0.0020437041989495057
         x: 0.0
         y: 0.0
-        z: -0.9990341847946975
+        z: 0.999997911634393
       position:
-        x: 0.2529683715303115
-        y: -0.6464593184035579
+        x: 0.42987094317260033
+        y: -0.7320066336096005
         z: 0.0
   dining_table:
     header:
@@ -35,8 +35,34 @@ positions:
         y: 0.0
         z: 0.0
       position:
-        x: 2.007300254529691
-        y: -3.523471189446857
+        x: 2.0349029500555496
+        y: -3.2814910965763957
+        z: 0.0
+  dishwasher:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 1.0
+        x: 0.0
+        y: 0.0
+        z: 0.0
+      position:
+        x: 2.072147654539516
+        y: -1.2981248262525344
+        z: 0.0
+  extra_table:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 6.123233995736766e-17
+        x: 0.0
+        y: 0.0
+        z: -1.0
+      position:
+        x: 0.058336693561545805
+        y: 2.255698061686946
         z: 0.0
   instruction_point:
     header:
@@ -61,8 +87,21 @@ positions:
         y: 0.0
         z: 0.006339864201038437
       position:
-        x: 0.08493237986161772
-        y: -4.43466583372431
+        x: 0.18450049716754602
+        y: -4.613220134639734
+        z: 0.0
+  kitchen_counter:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 6.123233995736766e-17
+        x: 0.0
+        y: 0.0
+        z: 1.0
+      position:
+        x: 0.1985186975682126
+        y: -1.7955618541057277
         z: 0.0
   living_room:
     header:
@@ -115,4 +154,17 @@ positions:
       position:
         x: 1.0108119422911304
         y: 2.856484468178074
+        z: 0.0
+  trash_bin:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 1.0
+        x: 0.0
+        y: 0.0
+        z: 0.0
+      position:
+        x: 1.712484340840216
+        y: -0.3937418140390605
         z: 0.0
