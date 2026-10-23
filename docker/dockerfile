@@ -129,6 +129,16 @@ RUN /bin/bash -c "\
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
     echo "source /root/skuba_ws/install/setup.bash" >> ~/.bashrc
 
+# rmw_zenoh: SKUBA's ROS 2 middleware. Every container's nodes meet through one
+# Zenoh router on tcp/localhost:7447 that entrypoint.sh keeps running (any
+# container can take it over). A late layer on purpose: rebuilding the image
+# for it reuses the cached layers above.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-rmw-zenoh-cpp \
+    && rm -rf /var/lib/apt/lists/*
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+
 # ===============================
 # Entrypoint: auto source + build mounted packages on every startup
 # build/ and install/ are on named volumes so only changed packages rebuild

@@ -2,6 +2,28 @@
 
 source /opt/ros/humble/setup.bash
 
+# Zenoh router -- the image's middleware is rmw_zenoh (RMW_IMPLEMENTATION), and
+# rmw_zenoh nodes meet through one Zenoh router on tcp/localhost:7447 (host
+# network: one router for the whole robot). Every SKUBA container runs this
+# same watcher: whichever holds port 7447 is the router, the rest stand by and
+# take over within ~2 s if it goes away. Nodes that have met keep talking
+# directly, so traffic does not stop with the router; only nodes that start
+# while no router is up wait for one (they retry every <=4 s). Started before
+# the build, so the router is up early. ZENOH_ROUTER=0 turns it off here.
+# Log: /tmp/zenoh_router.log.
+if [ "${ZENOH_ROUTER:-1}" != "0" ] && [ "${RMW_IMPLEMENTATION:-}" = rmw_zenoh_cpp ]; then
+  (
+    set +e  # a router that exits (port taken, crash) must not end the watcher
+    while true; do
+      if ! (exec 3<>/dev/tcp/127.0.0.1/7447) 2>/dev/null; then
+        echo "[zenoh] $(date +%T) router on tcp/localhost:7447 from navigation"
+        ros2 run rmw_zenoh_cpp rmw_zenohd
+      fi
+      sleep 2
+    done
+  ) > /tmp/zenoh_router.log 2>&1 &
+fi
+
 touch /tmp/.build_complete
 
 if [ -f /root/skuba_ws/install/setup.bash ]; then
