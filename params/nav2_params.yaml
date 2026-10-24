@@ -307,7 +307,8 @@ controller_server:
 #       within voxel_decay seconds automatically.
 #     → No raytrace geometry failures → no permanent ghost obstacles.
 #
-# Dimensions and frequencies match rcj_param.yaml (5×5m, 5 Hz, radius 0.25m).
+# Dimensions and frequencies match rcj_param.yaml (5×5m, 5 Hz); the footprint
+# here is a 0.25 m circle (rcj_param.yaml: 0.3 m).
 #
 # point_cloud_sensor source requires a depth camera publishing PointCloud2.
 # If no depth camera is available, remove point_cloud_sensor from
@@ -324,7 +325,10 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      robot_radius: 0.25
+      # A 0.25 m circle as a 16-sided polygon (no robot_radius), so the costmap
+      # runs in polygon mode and skuba_manipulation's arm_footprint can grow it
+      # on <costmap>/footprint. Keep equal to the global_costmap footprint.
+      footprint: "[[0.25, 0.0], [0.231, 0.096], [0.177, 0.177], [0.096, 0.231], [0.0, 0.25], [-0.096, 0.231], [-0.177, 0.177], [-0.231, 0.096], [-0.25, 0.0], [-0.231, -0.096], [-0.177, -0.177], [-0.096, -0.231], [0.0, -0.25], [0.096, -0.231], [0.177, -0.177], [0.231, -0.096]]"
       plugins: ["obstacle_layer", "stvl_layer", "inflation_layer"]
 
       inflation_layer:
@@ -418,7 +422,10 @@ global_costmap:
       publish_frequency: 5.0
       global_frame: map
       robot_base_frame: base_link
-      robot_radius: 0.25
+      # A 0.25 m circle as a 16-sided polygon (no robot_radius), so the costmap
+      # runs in polygon mode and skuba_manipulation's arm_footprint can grow it
+      # on <costmap>/footprint. Keep equal to the local_costmap footprint.
+      footprint: "[[0.25, 0.0], [0.231, 0.096], [0.177, 0.177], [0.096, 0.231], [0.0, 0.25], [-0.096, 0.231], [-0.177, 0.177], [-0.231, 0.096], [-0.25, 0.0], [-0.231, -0.096], [-0.177, -0.177], [-0.096, -0.231], [0.0, -0.25], [0.096, -0.231], [0.177, -0.177], [0.231, -0.096]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]

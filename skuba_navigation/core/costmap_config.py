@@ -10,9 +10,10 @@ import time
 import yaml
 from rcl_interfaces.msg import ParameterType
 
-# Parameter mapping: simple name -> full Nav2 parameter path
+# Parameter mapping: simple name -> full Nav2 parameter path. No robot_radius:
+# the costmaps use a polygon `footprint` (params/*.yaml) that
+# skuba_manipulation's arm_footprint owns at runtime.
 PARAM_MAPPING = {
-    "robot_radius": "robot_radius",
     "resolution": "resolution",
     "width": "width",
     "height": "height",
@@ -89,7 +90,6 @@ BACKWARD_MODE_DEFAULTS = {
 
 def load_validation_rules() -> dict:
     return {
-        "robot_radius": {"min": 0.05, "max": 0.5},
         "resolution": {"min": 0.01, "max": 0.1},
         "width": {"min": 2, "max": 10},
         "height": {"min": 2, "max": 10},
@@ -213,7 +213,6 @@ def get_original_config() -> dict:
         "local_costmap": {
             "local_costmap": {
                 "ros__parameters": {
-                    "robot_radius": 0.1,
                     "resolution": 0.05,
                     "width": 3,
                     "height": 3,
@@ -240,7 +239,6 @@ def get_original_config() -> dict:
         "global_costmap": {
             "global_costmap": {
                 "ros__parameters": {
-                    "robot_radius": 0.10,
                     "resolution": 0.05,
                     "update_frequency": 1.0,
                     "publish_frequency": 1.0,
