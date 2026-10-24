@@ -42,6 +42,10 @@ class RunningMap:
         )
         self._live: Optional[MapShape] = None
         self._found = None  # ((live, reported), map yaml): the last check
+        # yaml_filename only changes when map_server restarts, and a restarted
+        # map_server publishes /map again: ask once, then again after each /map.
+        self._reported: Optional[Path] = None
+        self._ask = True
         # map_server publishes /map latched, so the current map arrives at once.
         node.create_subscription(
             OccupancyGrid,
@@ -74,6 +78,7 @@ class RunningMap:
         return self._found[1]
 
     def _on_map(self, grid: OccupancyGrid) -> None:
+        self._ask = True
         info = grid.info
         self._live = MapShape(
             info.width,
@@ -84,6 +89,12 @@ class RunningMap:
         )
 
     def _map_server_yaml(self) -> Optional[Path]:
+        if self._ask or self._reported is None or not self._client.service_is_ready():
+            self._ask = False  # before asking: a /map arriving meanwhile asks again
+            self._reported = self._ask_map_server()
+        return self._reported
+
+    def _ask_map_server(self) -> Optional[Path]:
         if not self._client.wait_for_service(timeout_sec=_TIMEOUT):
             return None
         future = self._client.call_async(GetParameters.Request(names=["yaml_filename"]))

@@ -18,7 +18,6 @@ save_location writes:
 """
 
 import copy
-import os
 import shutil
 import time
 from pathlib import Path, PurePosixPath
@@ -27,7 +26,7 @@ from types import SimpleNamespace
 import yaml
 
 from .geometry_utils import quaternion_to_yaw, yaw_to_quaternion
-from .navigation.location_store import poses_path_for_map
+from .navigation.location_store import poses_path_for_map, write_poses_file
 
 # Trinary values map_saver_cli writes (mode: trinary, negate: 0).
 FREE = 254
@@ -57,16 +56,19 @@ def _pgm_tokens(data, count, pos=0):
 
 
 def read_pgm(path):
-    """Return (width, height, pixels: bytearray) of a binary (P5) 8-bit PGM."""
+    """Return (width, height, pixels: bytearray) of an 8-bit PGM, binary (P5) or ASCII (P2)."""
     data = Path(path).read_bytes()
     (magic, width, height, maxval), pos = _pgm_tokens(data, 4)
-    if magic != b"P5":
-        raise ValueError(f"{path}: only binary P5 PGM is supported")
+    if magic not in (b"P5", b"P2"):
+        raise ValueError(f"{path}: only P5 or P2 PGM is supported")
     if int(maxval) > 255:
         raise ValueError(f"{path}: only 8-bit PGM is supported")
     width, height = int(width), int(height)
-    end = pos + width * height
-    pixels = bytearray(data[pos:end])
+    if magic == b"P2":
+        pixels = bytearray(int(v) for v in data[pos:].split()[: width * height])
+    else:
+        end = pos + width * height
+        pixels = bytearray(data[pos:end])
     if len(pixels) != width * height:
         raise ValueError(f"{path}: truncated raster")
     return width, height, pixels
@@ -241,7 +243,5 @@ def save_locations(yaml_path, locations):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         shutil.copy2(yaml_path, yaml_path.with_name(f"{yaml_path.name}.{stamp}.bak"))
     data = locations_to_yaml_data(locations, existing)
-    tmp = yaml_path.with_name(yaml_path.name + ".tmp")
-    tmp.write_text(yaml.safe_dump(data, default_flow_style=False))
-    os.replace(tmp, yaml_path)  # readers never see a half-written file
+    write_poses_file(yaml_path, data)
     return str(yaml_path)

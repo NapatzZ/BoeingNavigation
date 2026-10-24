@@ -52,16 +52,26 @@ def find_running_map(
 
     `reported` is map_server's `yaml_filename`; it wins while it still matches.
     After a runtime swap it is stale, so the one other map that matches is used.
-    Zero or several matches return None: no guessing between maps.
+    A reported map that cannot be read is only trusted when no saved map
+    matches either (e.g. a map outside maps/). Otherwise zero or several
+    matches return None: no guessing between maps.
     """
     reported_shape = shape_of_map_yaml(reported)
-    if reported_shape is None or reported_shape.matches(live):
+    if reported_shape is not None and reported_shape.matches(live):
         return reported
-    if maps_root is None:
-        return None
-    candidates: List[Path] = [
+    candidates = _saved_maps_matching(live, maps_root) if maps_root else []
+    if len(candidates) == 1:
+        return candidates[0]
+    if reported_shape is None and not candidates:
+        return reported
+    return None
+
+
+def _saved_maps_matching(live: MapShape, maps_root: Path) -> List[Path]:
+    return [
         path
         for path in sorted(Path(maps_root).rglob("*.yaml"))
-        if (shape := shape_of_map_yaml(path)) is not None and shape.matches(live)
+        if not path.name.endswith(".poses.yaml")
+        and (shape := shape_of_map_yaml(path)) is not None
+        and shape.matches(live)
     ]
-    return candidates[0] if len(candidates) == 1 else None

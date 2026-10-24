@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 import tempfile
 import threading
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Protocol
 
 import yaml
 
@@ -38,8 +38,45 @@ class Location:
     pose: Pose2D
 
 
+class LocationSource(Protocol):
+    """Named locations: one pinned file (LocationStore) or the running map's (MapLocations)."""
+
+    @property
+    def path(self) -> Optional[Path]: ...
+
+    def get(self, name: str) -> Optional[Location]: ...
+
+    def names(self) -> List[str]: ...
+
+    def reload(self) -> int: ...
+
+    def save(self, name: str, location: Location) -> Path:
+        """Store `location` under `name`; returns the file it was written to."""
+
+
 class NoMapLoaded(Exception):
     """Poses belong to a map and none is running."""
+
+
+def write_poses_file(path, data: dict) -> None:
+    """
+    Write `data` to `path` atomically, keeping the file's permissions.
+
+    Readers in other processes (navigation_server, save_location, the map
+    editor) see the old file or the new one, never a truncated one.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            yaml.safe_dump(data, f, default_flow_style=False)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def poses_path_for_map(map_yaml) -> Path:
@@ -66,7 +103,9 @@ class LocationStore:
     def __init__(self, path: Path):
         self.path = Path(path)
         self._lock = threading.Lock()
-        self._mtime: Optional[float] = None
+        # (mtime_ns, inode, size): every write replaces the file (new inode),
+        # so two saves inside one coarse mtime tick are still told apart.
+        self._stamp: Optional[tuple] = None
         self._locations: Dict[str, Location] = {}
 
     def get(self, name: str) -> Optional[Location]:
@@ -82,11 +121,11 @@ class LocationStore:
     def reload(self) -> int:
         """Force a re-read. Returns the number of locations. Raises on a bad file."""
         with self._lock:
-            self._mtime = None
+            self._stamp = None
             self._refresh(strict=True)
             return len(self._locations)
 
-    def save(self, name: str, location: Location) -> None:
+    def save(self, name: str, location: Location) -> Path:
         name = name.strip()
         if not name:
             raise ValueError("Location name must not be empty.")
@@ -100,22 +139,24 @@ class LocationStore:
                     "orientation": {"x": 0.0, "y": 0.0, "z": qz, "w": qw},
                 },
             }
-            self._write_raw(data)
-            self._mtime = None
+            write_poses_file(self.path, data)
+            self._stamp = None
             self._refresh()
+        return self.path
 
     def _refresh(self, strict: bool = False) -> None:
         try:
-            mtime = self.path.stat().st_mtime
+            st = self.path.stat()
         except FileNotFoundError:
             if strict:
                 raise
-            self._locations, self._mtime = {}, None
+            self._locations, self._stamp = {}, None
             return
-        if mtime == self._mtime:
+        stamp = (st.st_mtime_ns, st.st_ino, st.st_size)
+        if stamp == self._stamp:
             return
         self._locations = _parse(self._read_raw())
-        self._mtime = mtime
+        self._stamp = stamp
 
     def _read_raw(self) -> dict:
         if not self.path.exists():
@@ -124,17 +165,6 @@ class LocationStore:
             data = yaml.safe_load(f) or {}
         data.setdefault("positions", {})
         return data
-
-    def _write_raw(self, data: dict) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=self.path.parent, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w") as f:
-                yaml.safe_dump(data, f, default_flow_style=False)
-            os.replace(tmp, self.path)
-        except BaseException:
-            os.unlink(tmp)
-            raise
 
 
 class _Quaternion:
@@ -186,8 +216,8 @@ class MapLocations:
     def reload(self) -> int:
         return self._for_running_map().reload()
 
-    def save(self, name: str, location: Location) -> None:
-        self._for_running_map().save(name, location)
+    def save(self, name: str, location: Location) -> Path:
+        return self._for_running_map().save(name, location)
 
     def _for_running_map(self) -> LocationStore:
         path = self.require_path()

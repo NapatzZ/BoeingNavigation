@@ -10,13 +10,13 @@ into the action result.
 from dataclasses import dataclass
 import enum
 import math
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 from ..geometry_utils import normalize_angle
 from .cancellation import CancelToken
 from .clock import Clock, Deadline
 from .config import MotionConfig, NavigationConfig
-from .location_store import LocationStore, MapLocations, NoMapLoaded
+from .location_store import LocationSource, NoMapLoaded
 from .motion import BaseMotion
 from .navigation_job import NavigationJob, NavigationReport, NavigationRequest
 from .ports import Nav2Port, PoseSource
@@ -47,7 +47,7 @@ class TaskContext:
     nav2: Nav2Port
     poses: PoseSource
     motion: BaseMotion
-    locations: Union[LocationStore, MapLocations]
+    locations: LocationSource
     nav_config: NavigationConfig
     motion_config: MotionConfig
     clock: Clock

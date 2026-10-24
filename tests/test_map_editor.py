@@ -6,30 +6,9 @@ from pathlib import Path
 import pytest
 import yaml
 
+from map_fakes import make_map
 from skuba_navigation.core import map_editor as ed
 from skuba_navigation.core.navigation.location_store import LocationStore
-
-
-def make_map(root, map_id="30_home/home", width=4, height=3, origin=(-1.0, -2.0, 0.0)):
-    folder = (root / map_id).parent
-    folder.mkdir(parents=True, exist_ok=True)
-    name = (root / map_id).name
-    pixels = bytearray(range(width * height))
-    ed.write_pgm(folder / f"{name}.pgm", width, height, pixels)
-    (folder / f"{name}.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "image": f"{name}.pgm",
-                "mode": "trinary",
-                "resolution": 0.05,
-                "origin": list(origin),
-                "negate": 0,
-                "occupied_thresh": 0.65,
-                "free_thresh": 0.25,
-            }
-        )
-    )
-    return pixels
 
 
 def test_pgm_round_trip(tmp_path):
@@ -41,6 +20,17 @@ def test_pgm_round_trip(tmp_path):
 def test_reads_pgm_with_comment_header(tmp_path):
     (tmp_path / "m.pgm").write_bytes(b"P5\n# CREATOR: map_saver\n2 1\n255\n\x00\xfe")
     assert ed.read_pgm(tmp_path / "m.pgm") == (2, 1, bytearray(b"\x00\xfe"))
+
+
+def test_reads_ascii_pgm(tmp_path):
+    (tmp_path / "m.pgm").write_bytes(b"P2\n# 8-bit pgm\n3 1\n255\n0 205\n254\n")
+    assert ed.read_pgm(tmp_path / "m.pgm") == (3, 1, bytearray([0, 205, 254]))
+
+
+def test_truncated_ascii_pgm_is_rejected(tmp_path):
+    (tmp_path / "m.pgm").write_bytes(b"P2\n3 1\n255\n0 205\n")
+    with pytest.raises(ValueError):
+        ed.read_pgm(tmp_path / "m.pgm")
 
 
 def test_list_and_load_map(tmp_path):

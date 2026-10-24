@@ -55,6 +55,7 @@ from ..core.navigation.clock import Clock, RateLimiter
 from ..core.navigation.config import MotionConfig, NavigationConfig
 from ..core.navigation.location_store import (
     Location,
+    LocationSource,
     LocationStore,
     MapLocations,
     NoMapLoaded,
@@ -113,20 +114,26 @@ class NavigationServer(Node):
         self._motion = BaseMotion(
             self._poses, self._base, self._motion_config, self._core_clock
         )
-        running_map = RunningMap(
-            self,
-            clients_group,
-            find_package_source_dir(
-                Path(get_package_share_directory(PACKAGE_NAME)), PACKAGE_NAME
-            ),
-            self._param("map", ""),
-        )
         locations_file = self._param("locations_file", "")
-        self._locations = (
-            LocationStore(Path(locations_file).expanduser())
-            if locations_file
-            else MapLocations(running_map.poses_path)
-        )
+        map_yaml = self._param("map", "")
+        self._locations: LocationSource
+        if locations_file:
+            self._locations = LocationStore(Path(locations_file).expanduser())
+            poses_from = (
+                f"{self._locations.path} for every map "
+                f"({len(self._locations.names())} locations)"
+            )
+        else:
+            running_map = RunningMap(
+                self,
+                clients_group,
+                find_package_source_dir(
+                    Path(get_package_share_directory(PACKAGE_NAME)), PACKAGE_NAME
+                ),
+                map_yaml,
+            )
+            self._locations = MapLocations(running_map.poses_path)
+            poses_from = f"<map>.poses.yaml of {map_yaml or 'the map map_server runs'}"
         self._arbiter = GoalArbiter(self._param("preempt_handover_timeout", 5.0))
         self._tokens: Dict[bytes, CancelToken] = {}
         self._tokens_lock = threading.Lock()
@@ -152,10 +159,7 @@ class NavigationServer(Node):
                 callback_group=clients_group,
             ),
         ]
-        self.get_logger().info(
-            "navigation_server ready; poses are read from the running map's "
-            ".poses.yaml, next to its map yaml."
-        )
+        self.get_logger().info(f"navigation_server ready; locations: {poses_from}.")
 
     # ── action table ──────────────────────────────────────────────────────
 
@@ -373,10 +377,12 @@ class NavigationServer(Node):
     def _on_save_location(self, request, response):
         try:
             pose = self._poses.robot_pose()
-            self._locations.save(request.location_name, Location(self._map_frame, pose))
+            path = self._locations.save(
+                request.location_name, Location(self._map_frame, pose)
+            )
             self.get_logger().info(
                 f"Saved '{request.location_name.strip()}' at "
-                f"({pose.x:.2f}, {pose.y:.2f}) in {self._locations.path}."
+                f"({pose.x:.2f}, {pose.y:.2f}) in {path}."
             )
             response.success = True
         except (TaskFailure, NoMapLoaded, ValueError, OSError) as e:

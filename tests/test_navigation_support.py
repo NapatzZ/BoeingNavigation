@@ -1,12 +1,12 @@
 """Cancellation/arbiter, standoff geometry, location store, goal validation."""
 
 import math
-import os
 from pathlib import Path
 import threading
 import time
 
 import pytest
+import yaml
 
 from skuba_navigation.core.navigation import validation
 from skuba_navigation.core.navigation.cancellation import CancelToken, GoalArbiter
@@ -17,6 +17,7 @@ from skuba_navigation.core.navigation.location_store import (
     NoMapLoaded,
     poses_path_for_map,
     source_map_path,
+    write_poses_file,
 )
 from skuba_navigation.core.navigation.standoff import (
     parse_side,
@@ -24,6 +25,7 @@ from skuba_navigation.core.navigation.standoff import (
     verify_standoff,
 )
 from skuba_navigation.core.navigation.types import ErrorCode, Pose2D, TaskFailure
+from skuba_navigation.core.zone_detection import save_location_to_yaml
 
 # ── cancellation ──────────────────────────────────────────────────────────
 
@@ -124,7 +126,7 @@ def test_location_roundtrip_and_merge_keeps_other_entries(tmp_path):
         "      orientation: {x: 0, y: 0, z: 0, w: 1}\n"
     )
     store = LocationStore(path)
-    store.save("home", Location("map", Pose2D(0.5, -0.5, math.pi / 2)))
+    assert store.save("home", Location("map", Pose2D(0.5, -0.5, math.pi / 2))) == path
     assert store.names() == ["door", "home"]
     assert store.get("home").pose.yaw == pytest.approx(math.pi / 2)
     assert "side: LEFT" in path.read_text()
@@ -137,8 +139,23 @@ def test_location_store_sees_external_edits(tmp_path):
     store.save("a", Location("map", Pose2D(0, 0)))
     other = LocationStore(path)
     other.save("b", Location("map", Pose2D(1, 1)))
-    os.utime(path, (time.time() + 5, time.time() + 5))  # make sure mtime moves
     assert store.get("b") is not None
+    # Back to back, faster than a coarse mtime tick: still seen at once.
+    for name in ("c", "d", "e"):
+        save_location_to_yaml(path, name, "FRONT", (0, 0, 0), (0, 0, 0, 1))
+        assert store.get(name) is not None
+
+
+def test_a_failed_write_leaves_the_poses_file_whole(tmp_path):
+    path = tmp_path / "a.poses.yaml"
+    path.write_text("positions: {}\n")
+    path.chmod(0o664)
+    with pytest.raises(yaml.YAMLError):
+        write_poses_file(path, {"positions": {"x": object()}})
+    assert path.read_text() == "positions: {}\n"
+    assert list(tmp_path.iterdir()) == [path]  # no stray .tmp
+    write_poses_file(path, {"positions": {}})
+    assert path.stat().st_mode & 0o777 == 0o664
 
 
 def test_location_store_rejects_empty_name_and_missing_reload(tmp_path):
@@ -174,7 +191,8 @@ def test_map_locations_follow_the_running_map(tmp_path):
     locations.save("door", Location("map", Pose2D(1, 2, 0)))
     running["path"] = tmp_path / "b.poses.yaml"
     assert locations.get("door") is None
-    locations.save("door", Location("map", Pose2D(9, 9, 0)))
+    saved = locations.save("door", Location("map", Pose2D(9, 9, 0)))
+    assert saved == tmp_path / "b.poses.yaml"
     running["path"] = tmp_path / "a.poses.yaml"
     assert locations.get("door").pose.x == 1
     assert locations.path == tmp_path / "a.poses.yaml"
@@ -217,8 +235,6 @@ def test_validation():
 def test_params_file_matches_config_defaults():
     import dataclasses
     from pathlib import Path
-
-    import yaml
 
     from skuba_navigation.core.navigation.config import MotionConfig, NavigationConfig
 
