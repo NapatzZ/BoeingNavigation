@@ -1,13 +1,16 @@
-"""The running map's poses file: what Nav2's map_server loaded, else an override."""
+"""The running map's poses file: the map map_server is serving, else an override."""
 
 from pathlib import Path
 from typing import Callable, Optional
 
+from nav_msgs.msg import OccupancyGrid
 from rcl_interfaces.srv import GetParameters
 from rclpy.callback_groups import CallbackGroup
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 
 from ..core.navigation.location_store import poses_path_for_map, source_map_path
+from ..core.navigation.map_identity import MapShape, find_running_map
 from .futures import wait_for_future
 
 _SERVICE = "/map_server/get_parameters"
@@ -37,13 +40,48 @@ class RunningMap:
         self._client = node.create_client(
             GetParameters, _SERVICE, callback_group=callback_group
         )
+        self._live: Optional[MapShape] = None
+        self._found = None  # ((live, reported), map yaml): the last check
+        # map_server publishes /map latched, so the current map arrives at once.
+        node.create_subscription(
+            OccupancyGrid,
+            "/map",
+            self._on_map,
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+            callback_group=callback_group,
+        )
 
     def poses_path(self) -> Optional[Path]:
-        """The map's poses file; None when no map is loaded."""
-        map_yaml = self._override or self._map_server_yaml()
+        """The map's poses file; None when no map is loaded or it is unclear which."""
+        map_yaml = self._override or self._running_yaml()
         if not map_yaml:
             return None
         return poses_path_for_map(source_map_path(map_yaml, self._source_dir))
+
+    def _running_yaml(self) -> Optional[Path]:
+        reported = self._map_server_yaml()
+        live = self._live
+        if reported is None or live is None:
+            return reported
+        key = (live, reported)
+        if self._found is None or self._found[0] != key:
+            maps_root = self._source_dir / "maps" if self._source_dir else None
+            self._found = (key, find_running_map(live, reported, maps_root))
+        return self._found[1]
+
+    def _on_map(self, grid: OccupancyGrid) -> None:
+        info = grid.info
+        self._live = MapShape(
+            info.width,
+            info.height,
+            info.resolution,
+            info.origin.position.x,
+            info.origin.position.y,
+        )
 
     def _map_server_yaml(self) -> Optional[Path]:
         if not self._client.wait_for_service(timeout_sec=_TIMEOUT):
