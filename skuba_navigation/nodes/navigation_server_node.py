@@ -45,9 +45,9 @@ from std_srvs.srv import Trigger
 
 from ..adapters.cmd_vel_base import CmdVelBase
 from ..adapters.conversions import fill, pose2d_from_pose
-from ..adapters.map_server_client import MapServerClient
 from ..adapters.nav2_client import Nav2Client
 from ..adapters.parameters import declare_dataclass
+from ..adapters.running_map import RunningMap
 from ..adapters.tf_pose_source import TfPoseSource
 from ..core.navigation import tasks, validation
 from ..core.navigation.cancellation import CancelToken, GoalArbiter
@@ -58,7 +58,6 @@ from ..core.navigation.location_store import (
     LocationStore,
     MapLocations,
     NoMapLoaded,
-    source_map_path,
 )
 from ..core.navigation.motion import BaseMotion
 from ..core.navigation.types import ErrorCode, TaskFailure, TaskResult
@@ -114,21 +113,19 @@ class NavigationServer(Node):
         self._motion = BaseMotion(
             self._poses, self._base, self._motion_config, self._core_clock
         )
-        self._map_server = MapServerClient(
+        running_map = RunningMap(
             self,
             clients_group,
-            self._param("map_server_parameters", "/map_server/get_parameters"),
-            self._param("map_server_timeout", 1.0),
-        )
-        self._map_override = self._param("map", "")
-        self._source_dir = find_package_source_dir(
-            Path(get_package_share_directory(PACKAGE_NAME)), PACKAGE_NAME
+            find_package_source_dir(
+                Path(get_package_share_directory(PACKAGE_NAME)), PACKAGE_NAME
+            ),
+            self._param("map", ""),
         )
         locations_file = self._param("locations_file", "")
         self._locations = (
             LocationStore(Path(locations_file).expanduser())
             if locations_file
-            else MapLocations(self._running_map)
+            else MapLocations(running_map.poses_path)
         )
         self._arbiter = GoalArbiter(self._param("preempt_handover_timeout", 5.0))
         self._tokens: Dict[bytes, CancelToken] = {}
@@ -356,11 +353,6 @@ class NavigationServer(Node):
             )
 
         return publish
-
-    def _running_map(self):
-        """The running map's yaml: the `map` parameter, else what map_server loaded."""
-        map_yaml = self._map_override or self._map_server.map_yaml()
-        return None if not map_yaml else source_map_path(map_yaml, self._source_dir)
 
     def _validate_go_to_location(self, goal):
         try:

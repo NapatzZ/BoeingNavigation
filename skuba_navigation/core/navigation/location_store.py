@@ -159,35 +159,38 @@ class MapLocations:
     """
     The locations of whichever map is running, looked up on every call.
 
-    `current_map` returns the running map's yaml path, or None when no map is
-    loaded; then every call raises NoMapLoaded instead of guessing a map.
+    `current_path` returns the running map's poses file, or None when no map
+    is loaded; then every call raises NoMapLoaded instead of guessing a map.
     """
 
-    def __init__(self, current_map: Callable[[], Optional[Path]]):
-        self._current_map = current_map
-        self._stores: Dict[Path, LocationStore] = {}
+    def __init__(self, current_path: Callable[[], Optional[Path]]):
+        self._current_path = current_path
+        self._store: Optional[LocationStore] = None
+
+    def require_path(self) -> Path:
+        path = self._current_path()
+        if path is None:
+            raise NoMapLoaded("no map loaded; poses belong to a saved map.")
+        return path
 
     @property
     def path(self) -> Optional[Path]:
-        map_yaml = self._current_map()
-        return None if map_yaml is None else poses_path_for_map(map_yaml)
+        return self._current_path()
 
     def get(self, name: str) -> Optional[Location]:
-        return self._store().get(name)
+        return self._for_running_map().get(name)
 
     def names(self) -> List[str]:
-        return self._store().names()
+        return self._for_running_map().names()
 
     def reload(self) -> int:
-        return self._store().reload()
+        return self._for_running_map().reload()
 
     def save(self, name: str, location: Location) -> None:
-        self._store().save(name, location)
+        self._for_running_map().save(name, location)
 
-    def _store(self) -> LocationStore:
-        path = self.path
-        if path is None:
-            raise NoMapLoaded("no map loaded; poses belong to a saved map.")
-        if path not in self._stores:
-            self._stores[path] = LocationStore(path)
-        return self._stores[path]
+    def _for_running_map(self) -> LocationStore:
+        path = self.require_path()
+        if self._store is None or self._store.path != path:
+            self._store = LocationStore(path)
+        return self._store

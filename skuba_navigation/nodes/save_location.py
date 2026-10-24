@@ -11,13 +11,9 @@ from skuba_interfaces.srv import SaveLocationWithSide
 from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
-from ..adapters.map_server_client import MapServerClient
+from ..adapters.running_map import RunningMap
 from ..core.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
-from ..core.navigation.location_store import (
-    NoMapLoaded,
-    poses_path_for_map,
-    source_map_path,
-)
+from ..core.navigation.location_store import MapLocations
 from ..core.package_paths import find_package_source_dir
 from ..core.zone_detection import (
     ZONES,
@@ -57,15 +53,16 @@ class SaveLocationServer(Node):
 
         # ── Poses file: the running map's, next to its map yaml ───────────────
         share = Path(get_package_share_directory(PACKAGE_NAME))
-        self.source_dir = find_package_source_dir(share, PACKAGE_NAME)
         # This node blocks inside its service callback on a plain spin, so the
         # map_server reply has to be spun for explicitly.
-        self.map_server = MapServerClient(
-            self,
-            self.callback_group,
-            "/map_server/get_parameters",
-            1.0,
-            wait=self._spin_until_done,
+        self.locations = MapLocations(
+            RunningMap(
+                self,
+                self.callback_group,
+                find_package_source_dir(share, PACKAGE_NAME),
+                self.declare_parameter("map", "").value,
+                wait=self._spin_until_done,
+            ).poses_path
         )
 
         self.srv = self.create_service(
@@ -121,10 +118,7 @@ class SaveLocationServer(Node):
         self.get_logger().info(f"--- Request to save location: '{location_name}' ---")
 
         try:
-            map_yaml = self.map_server.map_yaml()
-            if map_yaml is None:
-                raise NoMapLoaded("no map loaded; poses belong to a saved map.")
-            yaml_path = poses_path_for_map(source_map_path(map_yaml, self.source_dir))
+            yaml_path = self.locations.require_path()
             tf = self.tf_buffer.lookup_transform(
                 "map",
                 "base_link",

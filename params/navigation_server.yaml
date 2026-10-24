@@ -7,8 +7,6 @@ navigation_server:
     cmd_vel_topic: cmd_vel_nav_manual       # manual twist_mux lane (params/twist_mux.yaml)
     locations_file: ''                      # empty = the running map's <map>.poses.yaml; set = one file for every map
     map: ''                                 # empty = ask map_server which map is running; set = that map yaml
-    map_server_parameters: /map_server/get_parameters
-    map_server_timeout: 1.0                 # s to wait for map_server when a pose is read or saved
     preempt_handover_timeout: 5.0           # s a new goal waits for the old one to stop
     nav2:
       navigate_action: navigate_to_pose

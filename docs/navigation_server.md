@@ -173,8 +173,8 @@ twist_mux lane (`params/twist_mux.yaml`), never on Nav2's `cmd_vel_nav`.
 
 Poses are tied to a map: each map has `<map>.poses.yaml` next to its yaml
 (`maps/30_skuba_home/receptionist.yaml` -> `receptionist.poses.yaml`). On every
-read or save the server asks Nav2's `map_server` (`yaml_filename`, 1 s timeout,
-`map_server_parameters` / `map_server_timeout` parameters) which map is running
+read or save the server asks Nav2's `map_server` (its `yaml_filename` parameter,
+1 s timeout) which map is running
 and uses that map's file, in the source checkout when it has the map. The `map`
 parameter names the map yaml instead of asking. With no map loaded (the
 `mapping` task, or Nav2 not up) `save_location` fails and `go_to_location` ends

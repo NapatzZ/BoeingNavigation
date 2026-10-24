@@ -169,13 +169,13 @@ def test_source_map_path_prefers_the_source_checkout(tmp_path):
 
 
 def test_map_locations_follow_the_running_map(tmp_path):
-    running = {"map": tmp_path / "a.yaml"}
-    locations = MapLocations(lambda: running["map"])
+    running = {"path": tmp_path / "a.poses.yaml"}
+    locations = MapLocations(lambda: running["path"])
     locations.save("door", Location("map", Pose2D(1, 2, 0)))
-    running["map"] = tmp_path / "b.yaml"
+    running["path"] = tmp_path / "b.poses.yaml"
     assert locations.get("door") is None
     locations.save("door", Location("map", Pose2D(9, 9, 0)))
-    running["map"] = tmp_path / "a.yaml"
+    running["path"] = tmp_path / "a.poses.yaml"
     assert locations.get("door").pose.x == 1
     assert locations.path == tmp_path / "a.poses.yaml"
     assert not (tmp_path / "saved_pose.yaml").exists()
