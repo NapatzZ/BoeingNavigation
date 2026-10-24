@@ -171,12 +171,22 @@ twist_mux lane (`params/twist_mux.yaml`), never on Nav2's `cmd_vel_nav`.
 | `/skuba/nav/save_location` | `skuba_interfaces/SaveLocationCommand` | save the current `map → base_link` pose under `location_name` |
 | `/skuba/nav/reload_locations` | `std_srvs/Trigger` | force a re-read of the locations file |
 
-Locations file: the `locations_file` parameter, or by default the first of
-`<ws>/src/skuba_navigation/share/saved_pose.yaml`,
-`<ws>/src/skuba-navigation/share/saved_pose.yaml` whose folder exists, else the
-installed share directory. The path is logged at start-up. Reads pick up
-external edits (the `save_location` node, `pose_picker_web`) automatically;
-writes merge into the file and replace it atomically.
+Poses are tied to a map: each map has `<map>.poses.yaml` next to its yaml
+(`maps/30_skuba_home/skuba_map_real.yaml` -> `skuba_map_real.poses.yaml`). The
+server asks Nav2's `map_server` which map is running (its `yaml_filename`
+parameter, 1 s timeout; asked again after every new `/map` or when the service
+went away) and uses that map's file, in the source checkout when it has the
+map. `map_server` never updates that parameter after a runtime `load_map`, so
+it is checked against the map on `/map` (size, resolution, origin). A swapped
+map is recognised when exactly one saved map matches; otherwise it counts as
+no map loaded. A reported map that cannot be read is trusted only when no saved
+map matches `/map` either. The `map` parameter names the
+map yaml instead of asking. With no map loaded (the `mapping` task, Nav2 not
+up, or an unclear swap) `save_location` fails and `go_to_location` ends with
+`LOCATION_NOT_FOUND` ("no map loaded"); nothing falls back to another map's
+poses. The `locations_file` parameter pins one file for every map.
+Reads pick up external edits (the `save_location` node, the map editor)
+automatically; writes merge into the file and replace it atomically.
 
 ---
 
@@ -309,7 +319,7 @@ ros2 service call /skuba/nav/save_location skuba_interfaces/srv/SaveLocationComm
 | --- | --- | --- |
 | `map_frame` / `robot_frame` | `map` / `base_link` | frames for TF lookups |
 | `cmd_vel_topic` | `cmd_vel_nav_manual` | twist_mux lane for the cmd_vel actions |
-| `locations_file` | `''` | see [Services](#services) |
+| `locations_file` | `''` | one poses file for every map, see [Services](#services) |
 | `preempt_handover_timeout` | 5.0 s | how long a new goal waits for the old one to stop |
 | `nav2.*` | Nav2 defaults | action / service names, `server_timeout`, `cancel_timeout` |
 | `navigation.*` | | Nav2 goals: `default_timeout`, `max_retries`, `retry_delay`, costmap clearing, `feedback_rate`, standoff / facing tolerances |
@@ -337,7 +347,7 @@ skuba_navigation/
     ├── navigation_job.py             Nav2 pipeline: clear → plan-check → send → retry / cancel / deadline
     ├── motion.py                     closed-loop rotate / drive-straight controllers
     ├── standoff.py                   where to park next to a frame, and verification
-    ├── location_store.py             saved_pose.yaml
+    ├── location_store.py             <map>.poses.yaml
     ├── validation.py                 goal-time checks
     ├── cancellation.py               CancelToken + GoalArbiter (one goal at a time)
     ├── retry_policy.py               Nav2 outcome → retry / finish

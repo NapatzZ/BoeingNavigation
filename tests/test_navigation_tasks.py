@@ -6,7 +6,7 @@ import pytest
 
 from navigation_fakes import Harness
 from skuba_navigation.core.navigation import tasks
-from skuba_navigation.core.navigation.location_store import Location
+from skuba_navigation.core.navigation.location_store import Location, MapLocations
 from skuba_navigation.core.navigation.ports import Nav2Status
 from skuba_navigation.core.navigation.types import ErrorCode, Pose2D, TaskFailure
 
@@ -27,6 +27,16 @@ def test_go_to_location_uses_the_stored_pose(tmp_path):
     assert result.succeeded
     goal = h.nav2.goals[0][0]
     assert (goal.x, goal.y, goal.yaw) == pytest.approx((3.0, -1.0, 1.0))
+
+
+def test_go_to_location_without_a_map_fails_as_not_found(tmp_path):
+    h = Harness(tmp_path)
+    h.locations = MapLocations(lambda: None)
+    ctx = h.context()
+    with pytest.raises(TaskFailure) as err:
+        tasks.go_to_location(ctx, "kitchen", 30.0, "")
+    assert err.value.code == ErrorCode.LOCATION_NOT_FOUND
+    assert "no map loaded" in err.value.message
 
 
 def test_go_to_location_unknown_name(tmp_path):

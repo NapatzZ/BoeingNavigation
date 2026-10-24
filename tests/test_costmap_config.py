@@ -10,7 +10,7 @@ from skuba_navigation.core import costmap_config as cc
 def test_load_validation_rules_covers_every_costmap_param():
     rules = cc.load_validation_rules()
     assert set(rules) == set(cc.PARAM_MAPPING)
-    assert rules["robot_radius"] == {"min": 0.05, "max": 0.5}
+    assert "robot_radius" not in rules  # the costmaps use a polygon footprint
 
 
 def test_validate_parameter_within_range():
@@ -52,7 +52,7 @@ def _write_sample_config(path):
                 "local_costmap": {
                     "local_costmap": {
                         "ros__parameters": {
-                            "robot_radius": 0.1,
+                            "update_frequency": 5.0,
                             "inflation_layer": {"cost_scaling_factor": 2.0},
                         }
                     }
@@ -66,13 +66,13 @@ def test_update_yaml_config_top_level_param(tmp_path):
     config_path = tmp_path / "costmap_dynamic_config.yaml"
     _write_sample_config(config_path)
 
-    result = cc.update_yaml_config(str(config_path), "local", "robot_radius", 0.2)
-    assert result == {"success": True, "old_value": 0.1}
+    result = cc.update_yaml_config(str(config_path), "local", "update_frequency", 2.0)
+    assert result == {"success": True, "old_value": 5.0}
 
     on_disk = yaml.safe_load(config_path.read_text())
     assert (
-        on_disk["local_costmap"]["local_costmap"]["ros__parameters"]["robot_radius"]
-        == 0.2
+        on_disk["local_costmap"]["local_costmap"]["ros__parameters"]["update_frequency"]
+        == 2.0
     )
 
 
@@ -104,19 +104,19 @@ def test_update_yaml_config_unknown_costmap_fails(tmp_path):
     config_path = tmp_path / "costmap_dynamic_config.yaml"
     _write_sample_config(config_path)
 
-    result = cc.update_yaml_config(str(config_path), "nope", "robot_radius", 1.0)
+    result = cc.update_yaml_config(str(config_path), "nope", "update_frequency", 1.0)
     assert result["success"] is False
 
 
 def test_create_backup_config_copies_content(tmp_path):
     config_path = tmp_path / "costmap_dynamic_config.yaml"
-    config_path.write_text("robot_radius: 0.1\n")
+    config_path.write_text("update_frequency: 5.0\n")
 
     result = cc.create_backup_config(str(config_path))
     assert result["success"] is True
     assert result["backup_file"] != str(config_path)
     with open(result["backup_file"]) as f:
-        assert f.read() == "robot_radius: 0.1\n"
+        assert f.read() == "update_frequency: 5.0\n"
 
 
 def test_controller_param_tables_stay_consistent_after_dedup():

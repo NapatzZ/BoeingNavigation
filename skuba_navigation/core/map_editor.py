@@ -5,8 +5,9 @@ Maps follow the maps/<category>/<name>.{pgm,yaml} layout (see map_saver.py).
 Only the nav2 occupancy image (.pgm) is edited; a SLAM Toolbox .posegraph next
 to it is left as recorded, so re-serializing from SLAM would undo the edits.
 
-Locations are the shared share/saved_pose.yaml that navigation_server's
-LocationStore reads (re-read on change), in the schema save_location writes:
+Locations are the selected map's <name>.poses.yaml next to its yaml, which
+navigation_server's LocationStore reads (re-read on change), in the schema
+save_location writes:
 
     positions:
       <name>:
@@ -17,7 +18,6 @@ LocationStore reads (re-read on change), in the schema save_location writes:
 """
 
 import copy
-import os
 import shutil
 import time
 from pathlib import Path, PurePosixPath
@@ -26,6 +26,7 @@ from types import SimpleNamespace
 import yaml
 
 from .geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from .navigation.location_store import poses_path_for_map, write_poses_file
 
 # Trinary values map_saver_cli writes (mode: trinary, negate: 0).
 FREE = 254
@@ -55,16 +56,19 @@ def _pgm_tokens(data, count, pos=0):
 
 
 def read_pgm(path):
-    """Return (width, height, pixels: bytearray) of a binary (P5) 8-bit PGM."""
+    """Return (width, height, pixels: bytearray) of an 8-bit PGM, binary (P5) or ASCII (P2)."""
     data = Path(path).read_bytes()
     (magic, width, height, maxval), pos = _pgm_tokens(data, 4)
-    if magic != b"P5":
-        raise ValueError(f"{path}: only binary P5 PGM is supported")
+    if magic not in (b"P5", b"P2"):
+        raise ValueError(f"{path}: only P5 or P2 PGM is supported")
     if int(maxval) > 255:
         raise ValueError(f"{path}: only 8-bit PGM is supported")
     width, height = int(width), int(height)
-    end = pos + width * height
-    pixels = bytearray(data[pos:end])
+    if magic == b"P2":
+        pixels = bytearray(int(v) for v in data[pos:].split()[: width * height])
+    else:
+        end = pos + width * height
+        pixels = bytearray(data[pos:end])
     if len(pixels) != width * height:
         raise ValueError(f"{path}: truncated raster")
     return width, height, pixels
@@ -108,6 +112,11 @@ def resolve_map(maps_root, map_id):
     if Path(maps_root).resolve() not in path.resolve().parents:
         raise ValueError(f"bad map id: {map_id!r}")
     return path
+
+
+def poses_path(maps_root, map_id):
+    """The map's poses file, next to its yaml (same escape checks as resolve_map)."""
+    return poses_path_for_map(resolve_map(maps_root, map_id))
 
 
 def load_map(maps_root, map_id):
@@ -172,11 +181,11 @@ def world_to_pixel(x, y, height, resolution, origin):
     return col, row
 
 
-# ── locations (share/saved_pose.yaml) ────────────────────────────────────
+# ── locations (<map>.poses.yaml) ─────────────────────────────────────────
 
 
 def load_locations(yaml_path):
-    """Return [{name, x, y, yaw}] from saved_pose.yaml (empty if missing)."""
+    """Return [{name, x, y, yaw}] from a poses file (empty if missing)."""
     try:
         data = yaml.safe_load(Path(yaml_path).read_text()) or {}
     except FileNotFoundError:
@@ -198,7 +207,7 @@ def load_locations(yaml_path):
 
 def locations_to_yaml_data(locations, existing=None):
     """
-    [{name, x, y, yaw}] -> the saved_pose.yaml dict LocationStore parses.
+    [{name, x, y, yaw}] -> the poses dict LocationStore parses.
 
     `existing` is the file's current dict. Locations kept in the editor keep
     every field the editor does not own (e.g. save_location's header.side);
@@ -226,7 +235,7 @@ def locations_to_yaml_data(locations, existing=None):
 
 
 def save_locations(yaml_path, locations):
-    """Write `locations` to saved_pose.yaml, timestamped backup first."""
+    """Write `locations` to a poses file, timestamped backup first."""
     yaml_path = Path(yaml_path)
     existing = {}
     if yaml_path.exists():
@@ -234,7 +243,5 @@ def save_locations(yaml_path, locations):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         shutil.copy2(yaml_path, yaml_path.with_name(f"{yaml_path.name}.{stamp}.bak"))
     data = locations_to_yaml_data(locations, existing)
-    tmp = yaml_path.with_name(yaml_path.name + ".tmp")
-    tmp.write_text(yaml.safe_dump(data, default_flow_style=False))
-    os.replace(tmp, yaml_path)  # readers never see a half-written file
+    write_poses_file(yaml_path, data)
     return str(yaml_path)

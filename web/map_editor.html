@@ -124,7 +124,7 @@
   </section>
   <section>
     <h2>Locations</h2>
-    <p id="posePath">Shared by every map, read by navigation_server.</p>
+    <p id="posePath">Poses of the selected map, read by navigation_server.</p>
     <div class="row">
       <button id="saveLocs" class="primary" disabled>Save locations</button>
       <button id="reloadLocs">Reload</button>
@@ -459,9 +459,10 @@ $("undo").onclick = undo; $("redo").onclick = redo; $("fit").onclick = fit;
 $("cleanSpecks").onclick = () => st.map && cleanSpecks();
 $("fillHoles").onclick = () => st.map && fillHoles();
 $("saveMap").onclick = saveMap; $("saveLocs").onclick = saveLocs;
-$("reloadLocs").onclick = () => { if (!st.locsDirty || confirm("Discard unsaved location changes?")) loadLocs(); };
+$("reloadLocs").onclick = () => { if (st.map && (!st.locsDirty || confirm("Discard unsaved location changes?"))) loadLocs(st.map.id); };
 $("mapSelect").onchange = () => {
-  if (st.dirty && !confirm("Discard unsaved map edits?")) { $("mapSelect").value = st.map.id; return; }
+  if ((st.dirty && !confirm("Discard unsaved map edits?")) ||
+      (st.locsDirty && !confirm("Discard unsaved location changes?"))) { $("mapSelect").value = st.map.id; return; }
   loadMap($("mapSelect").value);
 };
 addEventListener("keydown", (e) => {
@@ -498,7 +499,7 @@ async function loadMap(id) {
     $("mapSelect").value = id; localStorageSet("mapId", id);
     $("stMap").textContent = `${id}  ·  ${m.width}×${m.height} px @ ${m.resolution} m  ·  ${(m.width * m.resolution).toFixed(1)}×${(m.height * m.resolution).toFixed(1)} m`;
     if (Math.abs(m.origin[2] || 0) > 1e-6) toast("Map origin has a yaw — location positions may be off", true);
-    rebuildImage(); fit(); updateUi();
+    rebuildImage(); fit(); updateUi(); loadLocs(id);
   } catch (e) { toast(`Load failed: ${e.message}`, true); }
 }
 async function saveMap() {
@@ -507,23 +508,23 @@ async function saveMap() {
     st.dirty = false; updateUi(); toast(`Saved ${r.saved.split("/").pop()}`);
   } catch (e) { toast(`Save failed: ${e.message}`, true); }
 }
-async function loadLocs() {
+async function loadLocs(id) {
   try {
-    const r = await api("/api/locations"); st.locs = r.locations; st.sel = -1; st.locsDirty = false;
-    $("posePath").textContent = `${r.path} — shared by every map, read by navigation_server.`;
+    const r = await api(`/api/locations?id=${encodeURIComponent(id)}`); st.locs = r.locations; st.sel = -1; st.locsDirty = false;
+    $("posePath").textContent = `${r.path} — this map's poses, read by navigation_server.`;
     renderLocList(); draw(); updateUi();
   } catch (e) { toast(`Locations failed: ${e.message}`, true); }
 }
 async function saveLocs() {
   try {
-    await api("/api/locations", { locations: st.locs });
+    await api("/api/locations", { id: st.map.id, locations: st.locs });
     st.locsDirty = false; updateUi(); toast(`Saved ${st.locs.length} location${st.locs.length === 1 ? "" : "s"}`);
   } catch (e) { toast(`Save failed: ${e.message}`, true); }
 }
 function localStorageGet(k) { try { return localStorage.getItem("skubaMapEditor." + k); } catch { return null; } }
 function localStorageSet(k, v) { try { localStorage.setItem("skubaMapEditor." + k, v); } catch { /* private mode */ } }
 
-setTool("brush"); setVal(WALL); resize(); loadMaps(); loadLocs();
+setTool("brush"); setVal(WALL); resize(); loadMaps();
 </script>
 </body>
 </html>

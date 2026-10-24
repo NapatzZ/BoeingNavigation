@@ -6,8 +6,6 @@ spins itself and keeps one global "current task" - unsafe to drive from the
 callbacks of another node and shared by every request.
 """
 
-import threading
-import time
 from typing import Callable, Optional
 
 from action_msgs.msg import GoalStatus
@@ -20,8 +18,7 @@ from rclpy.node import Node
 from ..core.navigation.ports import Nav2Feedback, Nav2Status
 from ..core.navigation.types import Pose2D
 from .conversions import duration_to_seconds, pose2d_from_pose, pose_stamped
-
-_POLL = 0.05  # s between should_stop() checks while waiting on a future
+from .futures import wait_for_future
 
 _STATUS = {
     GoalStatus.STATUS_SUCCEEDED: Nav2Status.SUCCEEDED,
@@ -77,7 +74,7 @@ class Nav2Client:
             request, feedback_callback=lambda msg: on_feedback(_feedback(msg.feedback))
         )
 
-        if not _wait(send_future, should_stop, self._server_timeout):
+        if not wait_for_future(send_future, should_stop, self._server_timeout):
             # Stopped (or no answer) before Nav2 accepted: cancel it if it lands later.
             send_future.add_done_callback(_cancel_if_accepted)
             return Nav2Status.CANCELED if should_stop() else Nav2Status.UNAVAILABLE
@@ -86,11 +83,11 @@ class Nav2Client:
             return Nav2Status.REJECTED
 
         result_future = handle.get_result_async()
-        if _wait(result_future, should_stop):
+        if wait_for_future(result_future, should_stop):
             return _STATUS.get(result_future.result().status, Nav2Status.ABORTED)
 
         handle.cancel_goal_async()
-        if not _wait(result_future, lambda: False, self._cancel_timeout):
+        if not wait_for_future(result_future, lambda: False, self._cancel_timeout):
             self._log.warning(
                 f"Nav2 did not confirm the cancel within {self._cancel_timeout:.1f}s."
             )
@@ -110,13 +107,15 @@ class Nav2Client:
         request.goal = pose_stamped(goal, frame_id, stamp)
         request.use_start = True
         send_future = self._compute_path.send_goal_async(request)
-        if not _wait(send_future, lambda: False, self._server_timeout):
+        if not wait_for_future(send_future, lambda: False, self._server_timeout):
             return None
         handle = send_future.result()
         if handle is None or not handle.accepted:
             return False
         result_future = handle.get_result_async()
-        if not _wait(result_future, lambda: False, 2.0 * self._server_timeout):
+        if not wait_for_future(
+            result_future, lambda: False, 2.0 * self._server_timeout
+        ):
             handle.cancel_goal_async()
             return None
         response = result_future.result()
@@ -135,25 +134,10 @@ class Nav2Client:
                 ok = False
                 continue
             future = client.call_async(ClearEntireCostmap.Request())
-            if not _wait(future, lambda: False, self._server_timeout):
+            if not wait_for_future(future, lambda: False, self._server_timeout):
                 self._log.warning(f"{client.srv_name} did not answer.")
                 ok = False
         return ok
-
-
-def _wait(
-    future, should_stop: Callable[[], bool], timeout: Optional[float] = None
-) -> bool:
-    """Block until `future` is done. False if should_stop() or `timeout` came first."""
-    done = threading.Event()
-    future.add_done_callback(lambda _: done.set())
-    start = time.monotonic()
-    while not done.wait(_POLL):
-        if should_stop():
-            return False
-        if timeout is not None and time.monotonic() - start > timeout:
-            return False
-    return True
 
 
 def _cancel_if_accepted(send_future) -> None:

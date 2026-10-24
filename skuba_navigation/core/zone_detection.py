@@ -5,13 +5,13 @@ No rclpy import.
 """
 
 import math
-import os
 from collections import defaultdict
 
 import numpy as np
 import yaml
 
 from .geometry_utils import SIDE_OFFSETS
+from .navigation.location_store import write_poses_file
 
 ZONES = {
     "FRONT": 0.0,
@@ -70,7 +70,7 @@ def save_location_to_yaml(
     yaml_path, location_name, side, translation, orientation
 ) -> dict:
     """
-    Merge one named location into the saved_pose.yaml file and write it.
+    Merge one named location into a poses file and write it.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples.
     Returns the data dict that was written.
@@ -98,8 +98,6 @@ def save_location_to_yaml(
         },
     }
 
-    os.makedirs(yaml_path.parent, exist_ok=True)
-    with open(yaml_path, "w") as f:
-        yaml.safe_dump(data, f, default_flow_style=False)
+    write_poses_file(yaml_path, data)
 
     return data

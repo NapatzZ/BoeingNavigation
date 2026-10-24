@@ -22,5 +22,5 @@ report.xml
 
 # map_editor / costmap_reconfig_server backups (local safety copies, not source)
 *.pgm.bak
-share/saved_pose.yaml.*.bak
+maps/**/*.poses.yaml.*.bak
 params/costmap_dynamic_config_backup_*.yaml

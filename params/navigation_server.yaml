@@ -5,7 +5,8 @@ navigation_server:
     map_frame: map
     robot_frame: base_link
     cmd_vel_topic: cmd_vel_nav_manual       # manual twist_mux lane (params/twist_mux.yaml)
-    locations_file: ''                      # empty = <ws>/src/skuba[-_]navigation/share/saved_pose.yaml
+    locations_file: ''                      # empty = the running map's <map>.poses.yaml; set = one file for every map
+    map: ''                                 # empty = ask map_server which map is running; set = that map yaml
     preempt_handover_timeout: 5.0           # s a new goal waits for the old one to stop
     nav2:
       navigate_action: navigate_to_pose

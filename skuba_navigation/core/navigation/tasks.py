@@ -16,7 +16,7 @@ from ..geometry_utils import normalize_angle
 from .cancellation import CancelToken
 from .clock import Clock, Deadline
 from .config import MotionConfig, NavigationConfig
-from .location_store import LocationStore
+from .location_store import LocationSource, NoMapLoaded
 from .motion import BaseMotion
 from .navigation_job import NavigationJob, NavigationReport, NavigationRequest
 from .ports import Nav2Port, PoseSource
@@ -47,7 +47,7 @@ class TaskContext:
     nav2: Nav2Port
     poses: PoseSource
     motion: BaseMotion
-    locations: LocationStore
+    locations: LocationSource
     nav_config: NavigationConfig
     motion_config: MotionConfig
     clock: Clock
@@ -101,7 +101,10 @@ def go_to_pose(
 def go_to_location(
     ctx: TaskContext, location: str, timeout: float, behavior_tree: str
 ) -> TaskResult:
-    stored = ctx.locations.get(location)
+    try:
+        stored = ctx.locations.get(location)
+    except NoMapLoaded as e:
+        raise TaskFailure(ErrorCode.LOCATION_NOT_FOUND, str(e)) from e
     if stored is None:
         raise TaskFailure(
             ErrorCode.LOCATION_NOT_FOUND, f"Unknown location '{location}'."
