@@ -11,7 +11,13 @@ from skuba_interfaces.srv import SaveLocationWithSide
 from tf2_ros import TransformListener, Buffer, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from pathlib import Path
+from ..adapters.map_server_client import MapServerClient
 from ..core.geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from ..core.navigation.location_store import (
+    NoMapLoaded,
+    poses_path_for_map,
+    source_map_path,
+)
 from ..core.package_paths import find_package_source_dir
 from ..core.zone_detection import (
     ZONES,
@@ -49,22 +55,18 @@ class SaveLocationServer(Node):
             callback_group=self.callback_group,
         )
 
-        # ── YAML path ─────────────────────────────────────────────────────────
-        try:
-            install_share = Path(get_package_share_directory(PACKAGE_NAME))
-            source_dir = find_package_source_dir(install_share, PACKAGE_NAME)
-            if source_dir is not None:
-                self.yaml_path = source_dir / "share" / "saved_pose.yaml"
-            else:
-                self.get_logger().warning(
-                    "Source checkout not found. Falling back to install share."
-                )
-                self.yaml_path = install_share / "saved_pose.yaml"
-        except Exception as e:
-            self.get_logger().error(f"Failed to determine YAML path: {e}")
-            self.yaml_path = Path("saved_pose.yaml")
-
-        self.get_logger().info(f"Using YAML path: {self.yaml_path}")
+        # ── Poses file: the running map's, next to its map yaml ───────────────
+        share = Path(get_package_share_directory(PACKAGE_NAME))
+        self.source_dir = find_package_source_dir(share, PACKAGE_NAME)
+        # This node blocks inside its service callback on a plain spin, so the
+        # map_server reply has to be spun for explicitly.
+        self.map_server = MapServerClient(
+            self,
+            self.callback_group,
+            "/map_server/get_parameters",
+            1.0,
+            wait=self._spin_until_done,
+        )
 
         self.srv = self.create_service(
             SaveLocationWithSide,
@@ -78,6 +80,10 @@ class SaveLocationServer(Node):
             f"[zones: {list(ZONES.keys())}  "
             f"±{HALF_WIDTH_DEG}°  accumulate {ACCUMULATE_SCANS} scans]"
         )
+
+    def _spin_until_done(self, future, timeout: float) -> bool:
+        rclpy.spin_until_future_complete(self, future, timeout_sec=timeout)
+        return future.done()
 
     # =========================================================================
     # Scan callback — accumulate zone hits
@@ -115,6 +121,10 @@ class SaveLocationServer(Node):
         self.get_logger().info(f"--- Request to save location: '{location_name}' ---")
 
         try:
+            map_yaml = self.map_server.map_yaml()
+            if map_yaml is None:
+                raise NoMapLoaded("no map loaded; poses belong to a saved map.")
+            yaml_path = poses_path_for_map(source_map_path(map_yaml, self.source_dir))
             tf = self.tf_buffer.lookup_transform(
                 "map",
                 "base_link",
@@ -130,7 +140,7 @@ class SaveLocationServer(Node):
             q_final_z, q_final_w = yaw_to_quaternion(final_yaw)
 
             save_location_to_yaml(
-                self.yaml_path,
+                yaml_path,
                 location_name,
                 detected_side,
                 (

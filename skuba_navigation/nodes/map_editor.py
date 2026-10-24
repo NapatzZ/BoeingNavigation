@@ -6,8 +6,8 @@ Map editor: a small web app to clean up saved maps and place named locations.
     ros2 run skuba_navigation map_editor --port 9000
 
 Edits maps/<category>/<name>.pgm in this package's source checkout (original
-kept as <name>.pgm.bak) and share/saved_pose.yaml (timestamped .bak), the
-same files map_save_cli and save_location write. Not a ROS node: it only
+kept as <name>.pgm.bak) and the selected map's <name>.poses.yaml (timestamped
+.bak), the same files map_save_cli and save_location write. Not a ROS node: it only
 reads and writes files, so it works with or without a running stack.
 
 HTTP glue only; the file/coordinate logic is in core/map_editor.py.
@@ -29,17 +29,17 @@ PACKAGE_NAME = "skuba_navigation"
 
 
 def resolve_paths():
-    """Return (maps root, saved_pose.yaml, editor html), source checkout first."""
+    """Return (maps root, editor html), source checkout first."""
     share = Path(get_package_share_directory(PACKAGE_NAME))
     source = find_package_source_dir(share, PACKAGE_NAME)
     base = source if source is not None else share
     html = base / "web" / "map_editor.html"
     if not html.exists():
         html = share / "web" / "map_editor.html"
-    return base / "maps", base / "share" / "saved_pose.yaml", html
+    return base / "maps", html
 
 
-def make_handler(maps_root, poses_path, html_path):
+def make_handler(maps_root, html_path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             pass  # keep the terminal quiet; errors are returned as JSON
@@ -76,12 +76,7 @@ def make_handler(maps_root, poses_path, html_path):
             elif url.path == "/api/map":
                 self._guard(lambda: self._map(query["id"][0]))
             elif url.path == "/api/locations":
-                self._guard(
-                    lambda: {
-                        "path": str(poses_path),
-                        "locations": editor.load_locations(poses_path),
-                    }
-                )
+                self._guard(lambda: self._locations(query["id"][0]))
             else:
                 self._send(404, {"error": "not found"})
 
@@ -90,13 +85,7 @@ def make_handler(maps_root, poses_path, html_path):
             if url.path == "/api/map":
                 self._guard(self._save_map)
             elif url.path == "/api/locations":
-                self._guard(
-                    lambda: {
-                        "saved": editor.save_locations(
-                            poses_path, self._body()["locations"]
-                        )
-                    }
-                )
+                self._guard(self._save_locations)
             else:
                 self._send(404, {"error": "not found"})
 
@@ -104,6 +93,15 @@ def make_handler(maps_root, poses_path, html_path):
             data = editor.load_map(maps_root, map_id)
             data["pixels"] = base64.b64encode(bytes(data["pixels"])).decode()
             return data
+
+        def _locations(self, map_id):
+            path = editor.poses_path(maps_root, map_id)
+            return {"path": str(path), "locations": editor.load_locations(path)}
+
+        def _save_locations(self):
+            body = self._body()
+            path = editor.poses_path(maps_root, body["id"])
+            return {"saved": editor.save_locations(path, body["locations"])}
 
         def _save_map(self):
             body = self._body()
@@ -122,13 +120,12 @@ def main():
     parser.add_argument("--port", type=int, default=8090)
     args, _ = parser.parse_known_args()  # ignore --ros-args from ros2 run
 
-    maps_root, poses_path, html_path = resolve_paths()
+    maps_root, html_path = resolve_paths()
     server = ThreadingHTTPServer(
-        (args.host, args.port), make_handler(maps_root, poses_path, html_path)
+        (args.host, args.port), make_handler(maps_root, html_path)
     )
     print(f"Map editor: http://{args.host}:{args.port}")
     print(f"  maps:      {maps_root}")
-    print(f"  locations: {poses_path}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

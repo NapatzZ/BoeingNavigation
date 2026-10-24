@@ -1,0 +1,66 @@
+positions:
+  beverage_room:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 1.0
+        x: 0.0
+        y: 0.0
+        z: 0.0
+      position:
+        x: 1.576
+        y: 0.289
+        z: 0.0
+  drink_table:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.7349145951499598
+        x: 0.0
+        y: 0.0
+        z: 0.6781596698680706
+      position:
+        x: 3.93
+        y: 0.438
+        z: 0.0
+  living_room:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.6775180777551102
+        x: 0.0
+        y: 0.0
+        z: -0.7355061211948004
+      position:
+        x: 2.334
+        y: -0.82
+        z: 0.0
+  living_room_seat:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.9987193571841863
+        x: 0.0
+        y: 0.0
+        z: -0.05059294007671331
+      position:
+        x: 3.746
+        y: -1.242
+        z: 0.0
+  start:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.031410759078128174
+        x: 0.0
+        y: 0.0
+        z: 0.9995065603657316
+      position:
+        x: -1.724
+        y: 0.275
+        z: 0.0

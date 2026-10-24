@@ -45,6 +45,7 @@ from std_srvs.srv import Trigger
 
 from ..adapters.cmd_vel_base import CmdVelBase
 from ..adapters.conversions import fill, pose2d_from_pose
+from ..adapters.map_server_client import MapServerClient
 from ..adapters.nav2_client import Nav2Client
 from ..adapters.parameters import declare_dataclass
 from ..adapters.tf_pose_source import TfPoseSource
@@ -55,7 +56,9 @@ from ..core.navigation.config import MotionConfig, NavigationConfig
 from ..core.navigation.location_store import (
     Location,
     LocationStore,
-    resolve_locations_file,
+    MapLocations,
+    NoMapLoaded,
+    source_map_path,
 )
 from ..core.navigation.motion import BaseMotion
 from ..core.navigation.types import ErrorCode, TaskFailure, TaskResult
@@ -111,10 +114,21 @@ class NavigationServer(Node):
         self._motion = BaseMotion(
             self._poses, self._base, self._motion_config, self._core_clock
         )
-        self._locations = LocationStore(
-            resolve_locations_file(
-                self._param("locations_file", ""), _default_locations_files()
-            )
+        self._map_server = MapServerClient(
+            self,
+            clients_group,
+            self._param("map_server_parameters", "/map_server/get_parameters"),
+            self._param("map_server_timeout", 1.0),
+        )
+        self._map_override = self._param("map", "")
+        self._source_dir = find_package_source_dir(
+            Path(get_package_share_directory(PACKAGE_NAME)), PACKAGE_NAME
+        )
+        locations_file = self._param("locations_file", "")
+        self._locations = (
+            LocationStore(Path(locations_file).expanduser())
+            if locations_file
+            else MapLocations(self._running_map)
         )
         self._arbiter = GoalArbiter(self._param("preempt_handover_timeout", 5.0))
         self._tokens: Dict[bytes, CancelToken] = {}
@@ -142,8 +156,8 @@ class NavigationServer(Node):
             ),
         ]
         self.get_logger().info(
-            f"navigation_server ready; locations file: {self._locations.path} "
-            f"({len(self._locations.names())} locations)."
+            "navigation_server ready; poses are read from the running map's "
+            ".poses.yaml, next to its map yaml."
         )
 
     # ── action table ──────────────────────────────────────────────────────
@@ -176,9 +190,7 @@ class NavigationServer(Node):
             ActionSpec(
                 "go_to_location",
                 GoToLocation,
-                validate=lambda g: validation.check_go_to_location(
-                    g.location, self._locations.get(g.location) is not None
-                ),
+                validate=self._validate_go_to_location,
                 run=lambda ctx, g: tasks.go_to_location(
                     ctx, g.location, g.timeout, g.behavior_tree
                 ),
@@ -345,6 +357,18 @@ class NavigationServer(Node):
 
         return publish
 
+    def _running_map(self):
+        """The running map's yaml: the `map` parameter, else what map_server loaded."""
+        map_yaml = self._map_override or self._map_server.map_yaml()
+        return None if not map_yaml else source_map_path(map_yaml, self._source_dir)
+
+    def _validate_go_to_location(self, goal):
+        try:
+            known = self._locations.get(goal.location) is not None
+        except NoMapLoaded as e:
+            return str(e)
+        return validation.check_go_to_location(goal.location, known)
+
     # ── services ──────────────────────────────────────────────────────────
 
     def _on_clear_costmaps(self, _request, response):
@@ -363,7 +387,7 @@ class NavigationServer(Node):
                 f"({pose.x:.2f}, {pose.y:.2f}) in {self._locations.path}."
             )
             response.success = True
-        except (TaskFailure, ValueError, OSError) as e:
+        except (TaskFailure, NoMapLoaded, ValueError, OSError) as e:
             self.get_logger().error(
                 f"save_location '{request.location_name}' failed: {e}"
             )
@@ -392,22 +416,6 @@ class NavigationServer(Node):
 
     def _param(self, name: str, default):
         return self.declare_parameter(name, default).value
-
-
-def _default_locations_files():
-    """
-    Where saved_pose.yaml is looked for when `locations_file` is not set.
-
-    The source checkout is preferred so saved locations survive `colcon build`
-    (same lookup as save_location: any folder name or nesting); the install
-    share is the fallback.
-    """
-    share = Path(get_package_share_directory(PACKAGE_NAME))
-    source_dir = find_package_source_dir(share, PACKAGE_NAME)
-    candidates = [share / "saved_pose.yaml"]
-    if source_dir is not None:
-        candidates.insert(0, source_dir / "share" / "saved_pose.yaml")
-    return candidates
 
 
 def _raise_keyboard_interrupt(_signum, _frame):

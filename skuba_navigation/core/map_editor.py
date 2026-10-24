@@ -5,8 +5,9 @@ Maps follow the maps/<category>/<name>.{pgm,yaml} layout (see map_saver.py).
 Only the nav2 occupancy image (.pgm) is edited; a SLAM Toolbox .posegraph next
 to it is left as recorded, so re-serializing from SLAM would undo the edits.
 
-Locations are the shared share/saved_pose.yaml that navigation_server's
-LocationStore reads (re-read on change), in the schema save_location writes:
+Locations are the selected map's <name>.poses.yaml next to its yaml, which
+navigation_server's LocationStore reads (re-read on change), in the schema
+save_location writes:
 
     positions:
       <name>:
@@ -26,6 +27,7 @@ from types import SimpleNamespace
 import yaml
 
 from .geometry_utils import quaternion_to_yaw, yaw_to_quaternion
+from .navigation.location_store import poses_path_for_map
 
 # Trinary values map_saver_cli writes (mode: trinary, negate: 0).
 FREE = 254
@@ -110,6 +112,11 @@ def resolve_map(maps_root, map_id):
     return path
 
 
+def poses_path(maps_root, map_id):
+    """The map's poses file, next to its yaml (same escape checks as resolve_map)."""
+    return poses_path_for_map(resolve_map(maps_root, map_id))
+
+
 def load_map(maps_root, map_id):
     """Return the map metadata + raster for the editor."""
     yaml_path = resolve_map(maps_root, map_id)
@@ -172,11 +179,11 @@ def world_to_pixel(x, y, height, resolution, origin):
     return col, row
 
 
-# ── locations (share/saved_pose.yaml) ────────────────────────────────────
+# ── locations (<map>.poses.yaml) ─────────────────────────────────────────
 
 
 def load_locations(yaml_path):
-    """Return [{name, x, y, yaw}] from saved_pose.yaml (empty if missing)."""
+    """Return [{name, x, y, yaw}] from a poses file (empty if missing)."""
     try:
         data = yaml.safe_load(Path(yaml_path).read_text()) or {}
     except FileNotFoundError:
@@ -198,7 +205,7 @@ def load_locations(yaml_path):
 
 def locations_to_yaml_data(locations, existing=None):
     """
-    [{name, x, y, yaw}] -> the saved_pose.yaml dict LocationStore parses.
+    [{name, x, y, yaw}] -> the poses dict LocationStore parses.
 
     `existing` is the file's current dict. Locations kept in the editor keep
     every field the editor does not own (e.g. save_location's header.side);
@@ -226,7 +233,7 @@ def locations_to_yaml_data(locations, existing=None):
 
 
 def save_locations(yaml_path, locations):
-    """Write `locations` to saved_pose.yaml, timestamped backup first."""
+    """Write `locations` to a poses file, timestamped backup first."""
     yaml_path = Path(yaml_path)
     existing = {}
     if yaml_path.exists():

@@ -2,6 +2,7 @@
 
 import math
 import os
+from pathlib import Path
 import threading
 import time
 
@@ -12,7 +13,10 @@ from skuba_navigation.core.navigation.cancellation import CancelToken, GoalArbit
 from skuba_navigation.core.navigation.location_store import (
     Location,
     LocationStore,
-    resolve_locations_file,
+    MapLocations,
+    NoMapLoaded,
+    poses_path_for_map,
+    source_map_path,
 )
 from skuba_navigation.core.navigation.standoff import (
     parse_side,
@@ -145,16 +149,49 @@ def test_location_store_rejects_empty_name_and_missing_reload(tmp_path):
         store.reload()
 
 
-def test_resolve_locations_file(tmp_path):
-    existing = tmp_path / "a" / "saved_pose.yaml"
-    existing.parent.mkdir()
-    fallback = tmp_path / "share" / "saved_pose.yaml"
-    missing = tmp_path / "nope" / "saved_pose.yaml"
-    assert resolve_locations_file("/x/y.yaml", [existing]) == type(existing)(
-        "/x/y.yaml"
+def test_poses_path_sits_next_to_the_map():
+    assert poses_path_for_map("/m/30_home/receptionist.yaml") == Path(
+        "/m/30_home/receptionist.poses.yaml"
     )
-    assert resolve_locations_file("", [missing, existing, fallback]) == existing
-    assert resolve_locations_file("", [missing, fallback]) == fallback
+
+
+def test_source_map_path_prefers_the_source_checkout(tmp_path):
+    source_map = tmp_path / "src" / "maps" / "30_home" / "r.yaml"
+    source_map.parent.mkdir(parents=True)
+    source_map.write_text("image: r.pgm\n")
+    installed = Path(
+        "/ws/install/skuba_navigation/share/skuba_navigation/maps/30_home/r.yaml"
+    )
+    assert source_map_path(installed, tmp_path / "src") == source_map
+    assert source_map_path(installed, None) == installed
+    other = Path("/ws/install/x/maps/30_home/other.yaml")
+    assert source_map_path(other, tmp_path / "src") == other
+
+
+def test_map_locations_follow_the_running_map(tmp_path):
+    running = {"map": tmp_path / "a.yaml"}
+    locations = MapLocations(lambda: running["map"])
+    locations.save("door", Location("map", Pose2D(1, 2, 0)))
+    running["map"] = tmp_path / "b.yaml"
+    assert locations.get("door") is None
+    locations.save("door", Location("map", Pose2D(9, 9, 0)))
+    running["map"] = tmp_path / "a.yaml"
+    assert locations.get("door").pose.x == 1
+    assert locations.path == tmp_path / "a.poses.yaml"
+    assert not (tmp_path / "saved_pose.yaml").exists()
+
+
+def test_map_locations_without_a_map_refuse(tmp_path):
+    locations = MapLocations(lambda: None)
+    assert locations.path is None
+    for call in (
+        lambda: locations.get("x"),
+        locations.names,
+        locations.reload,
+        lambda: locations.save("x", Location("map", Pose2D(0, 0))),
+    ):
+        with pytest.raises(NoMapLoaded):
+            call()
 
 
 # ── validation ────────────────────────────────────────────────────────────

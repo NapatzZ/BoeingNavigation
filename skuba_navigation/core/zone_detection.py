@@ -70,7 +70,7 @@ def save_location_to_yaml(
     yaml_path, location_name, side, translation, orientation
 ) -> dict:
     """
-    Merge one named location into the saved_pose.yaml file and write it.
+    Merge one named location into a poses file and write it.
 
     `translation`/`orientation` are (x, y, z) / (x, y, z, w) tuples.
     Returns the data dict that was written.

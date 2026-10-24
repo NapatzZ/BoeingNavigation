@@ -1,6 +1,7 @@
 """Unit tests for core/map_editor.py (PGM I/O, paths, coordinates, locations)."""
 
 import math
+from pathlib import Path
 
 import pytest
 import yaml
@@ -82,6 +83,25 @@ def test_pixel_world_round_trip():
     assert ed.world_to_pixel(x, y, height, res, origin) == pytest.approx((3, 0))
 
 
+def test_poses_path_is_the_maps_sidecar_and_stays_inside_maps(tmp_path):
+    assert ed.poses_path(tmp_path, "30_home/receptionist") == (
+        tmp_path / "30_home" / "receptionist.poses.yaml"
+    )
+    with pytest.raises(ValueError):
+        ed.poses_path(tmp_path, "../x")
+
+
+def test_each_map_keeps_its_own_locations(tmp_path):
+    make_map(tmp_path, "30_home/a")
+    make_map(tmp_path, "30_home/b")
+    ed.save_locations(
+        ed.poses_path(tmp_path, "30_home/a"),
+        [{"name": "start", "x": 1.0, "y": 1.0, "yaw": 0.0}],
+    )
+    assert ed.load_locations(ed.poses_path(tmp_path, "30_home/b")) == []
+    assert not (tmp_path / "saved_pose.yaml").exists()
+
+
 def test_locations_round_trip_matches_location_store(tmp_path):
     path = tmp_path / "saved_pose.yaml"
     locs = [
@@ -153,3 +173,13 @@ def test_save_locations_rejects_blank_or_duplicate_names(tmp_path, locs):
 
 def test_missing_locations_file_is_empty(tmp_path):
     assert ed.load_locations(tmp_path / "nope.yaml") == []
+
+
+def test_committed_poses_files_belong_to_a_map_and_load():
+    maps_root = Path(__file__).resolve().parent.parent / "maps"
+    poses = sorted(maps_root.rglob("*.poses.yaml"))
+    assert poses
+    for path in poses:
+        map_yaml = path.with_name(path.name.replace(".poses.yaml", ".yaml"))
+        assert map_yaml.exists(), f"{path.name} has no map next to it"
+        assert LocationStore(path).names()

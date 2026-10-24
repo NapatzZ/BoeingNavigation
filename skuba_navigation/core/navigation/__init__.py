@@ -11,7 +11,7 @@ Layering (see README "navigation_server"):
     navigation_job.py  send-to-Nav2 pipeline: retries, deadline, cancel, feedback
     motion.py          closed-loop rotate / drive-straight on cmd_vel
     standoff.py        where to park next to a TF frame and how to verify it
-    location_store.py  saved named locations (saved_pose.yaml)
+    location_store.py  saved named locations (<map>.poses.yaml)
     validation.py      goal checks done before a goal is accepted
     cancellation.py    CancelToken + GoalArbiter (one base-motion goal at a time)
     retry_policy.py    Nav2 attempt outcome -> retry / finish decision
