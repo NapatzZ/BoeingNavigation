@@ -150,8 +150,8 @@ def test_location_store_rejects_empty_name_and_missing_reload(tmp_path):
 
 
 def test_poses_path_sits_next_to_the_map():
-    assert poses_path_for_map("/m/30_home/receptionist.yaml") == Path(
-        "/m/30_home/receptionist.poses.yaml"
+    assert poses_path_for_map("/m/30_home/skuba_map_real.yaml") == Path(
+        "/m/30_home/skuba_map_real.poses.yaml"
     )
 
 

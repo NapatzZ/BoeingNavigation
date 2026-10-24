@@ -172,7 +172,7 @@ twist_mux lane (`params/twist_mux.yaml`), never on Nav2's `cmd_vel_nav`.
 | `/skuba/nav/reload_locations` | `std_srvs/Trigger` | force a re-read of the locations file |
 
 Poses are tied to a map: each map has `<map>.poses.yaml` next to its yaml
-(`maps/30_skuba_home/receptionist.yaml` -> `receptionist.poses.yaml`). On every
+(`maps/30_skuba_home/skuba_map_real.yaml` -> `skuba_map_real.poses.yaml`). On every
 read or save the server asks Nav2's `map_server` which map is running (its
 `yaml_filename` parameter, 1 s timeout) and uses that map's file, in the source
 checkout when it has the map. `map_server` never updates that parameter after a

@@ -84,8 +84,8 @@ def test_pixel_world_round_trip():
 
 
 def test_poses_path_is_the_maps_sidecar_and_stays_inside_maps(tmp_path):
-    assert ed.poses_path(tmp_path, "30_home/receptionist") == (
-        tmp_path / "30_home" / "receptionist.poses.yaml"
+    assert ed.poses_path(tmp_path, "30_home/skuba_map_real") == (
+        tmp_path / "30_home" / "skuba_map_real.poses.yaml"
     )
     with pytest.raises(ValueError):
         ed.poses_path(tmp_path, "../x")
