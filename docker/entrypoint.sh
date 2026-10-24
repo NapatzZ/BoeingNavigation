@@ -8,16 +8,37 @@ source /opt/ros/humble/setup.bash
 # same watcher: whichever holds port 7447 is the router, the rest stand by and
 # take over within ~2 s if it goes away. Nodes that have met keep talking
 # directly, so traffic does not stop with the router; only nodes that start
-# while no router is up wait for one (they retry every <=4 s). Started before
-# the build, so the router is up early. ZENOH_ROUTER=0 turns it off here.
-# Log: /tmp/zenoh_router.log.
+# while no router is up wait for one (they retry every <=4 s). A router that
+# hangs (deadlock, SIGSTOP) still holds the port, so nobody would take over:
+# the container running it watches that connections to 7447 get accepted --
+# the stand-by checks keep knocking -- and kills it once some have waited 3
+# checks (~6 s) in a row. Started before the build, so the router is up early.
+# ZENOH_ROUTER=0 turns it off here. Log: /tmp/zenoh_router.log.
 if [ "${ZENOH_ROUTER:-1}" != "0" ] && [ "${RMW_IMPLEMENTATION:-}" = rmw_zenoh_cpp ]; then
   (
     set +e  # a router that exits (port taken, crash) must not end the watcher
+    queued() {  # connections waiting to be accepted on 7447 (from /proc: not every image has ss)
+      local q=0 l st qs
+      while read -r _ l _ st qs _; do
+        [ "${st}" = 0A ] && [ "${l##*:}" = 1D17 ] && q=$((q + 16#${qs#*:}))
+      done < <(tail -n +2 -q /proc/net/tcp /proc/net/tcp6 2>/dev/null)
+      echo "${q}"
+    }
     while true; do
       if ! (exec 3<>/dev/tcp/127.0.0.1/7447) 2>/dev/null; then
         echo "[zenoh] $(date +%T) router on tcp/localhost:7447 from navigation"
-        ros2 run rmw_zenoh_cpp rmw_zenohd
+        /opt/ros/humble/lib/rmw_zenoh_cpp/rmw_zenohd &
+        router=$! stuck=0
+        while sleep 2 && kill -0 "${router}" 2>/dev/null; do
+          # Read the queue before knocking: a knock is accepted within the next 2 s.
+          if [ "$(queued)" -gt 0 ]; then stuck=$((stuck + 1)); else stuck=0; fi
+          if [ "${stuck}" -ge 3 ]; then
+            echo "[zenoh] $(date +%T) router stopped accepting -- killed, the stand-by takes over"
+            kill -9 "${router}"
+          fi
+          (exec 3<>/dev/tcp/127.0.0.1/7447) 2>/dev/null
+        done
+        wait "${router}" 2>/dev/null
       fi
       sleep 2
     done
