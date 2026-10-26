@@ -2,30 +2,28 @@
 """
 Costmap Dynamic Reconfiguration Server for SKUBA robot.
 
-This node provides a simple service to dynamically modify costmap parameters
-by updating YAML configuration and reloading to Nav2.
+Changes costmap parameters on the running Nav2 costmaps (never a file), and
+puts the values it replaced back on reset_costmap_config.
 
 Also supports controller server parameter changes, including a dedicated
 SetControllerMode service for switching the robot to backward-only motion.
 
-Pure validation/YAML/dict logic lives in costmap_config.py; this file only
-wires up services and the rclpy parameter-client calls that logic needs.
+Pure validation and the memory of replaced values live in costmap_config.py;
+this file only wires up services and the rclpy parameter-client calls.
 """
 
-import os
+import time
 
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
-from ament_index_python.packages import get_package_share_directory
 from skuba_interfaces.srv import DynamicReconfig
 from rcl_interfaces.srv import SetParameters, GetParameters
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
-from pathlib import Path
 from std_srvs.srv import Trigger
 
 from ..core import costmap_config as cc
-from ..core.package_paths import find_package_source_dir
 
 NAMESPACE = "skuba/nav"
 
@@ -33,9 +31,21 @@ NAMESPACE = "skuba/nav"
 CONTROLLER_SERVER_NODE = "/controller_server"
 
 
+def _wait(future, timeout_sec):
+    """
+    Wait for a client reply without spinning again.
+
+    Spinning the node inside its own callback breaks rclpy ("wait set index
+    too big"); the multi-threaded executor in main() delivers the reply.
+    """
+    deadline = time.monotonic() + timeout_sec
+    while not future.done() and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+
 class CostmapReconfigServer(Node):
     """
-    Simple costmap reconfiguration server that modifies YAML and applies to Nav2.
+    Costmap reconfiguration server that sets parameters on the running Nav2 costmaps.
 
     Also supports controller server parameter changes for motion mode switching
     (e.g., backward-only mode via allow_reversing / min_vel_x / max_vel_x).
@@ -44,17 +54,6 @@ class CostmapReconfigServer(Node):
     def __init__(self):
         super().__init__("costmap_reconfig_server")
         self.callback_group = ReentrantCallbackGroup()
-
-        # File paths
-        package_name = "skuba_navigation"
-        install_share_path = Path(get_package_share_directory(package_name))
-        source_dir = find_package_source_dir(install_share_path, package_name)
-        config_path = (
-            (source_dir or install_share_path)
-            / "params"
-            / "costmap_dynamic_config.yaml"
-        )
-        self.config_path = str(config_path)
 
         # ── Costmap services ──────────────────────────────────────────────────
         self._reconfig_service = self.create_service(
@@ -96,18 +95,40 @@ class CostmapReconfigServer(Node):
         # ── ROS2 parameter clients ────────────────────────────────────────────
         self.param_clients = {
             "local": self.create_client(
-                SetParameters, "/local_costmap/local_costmap/set_parameters"
+                SetParameters,
+                "/local_costmap/local_costmap/set_parameters",
+                callback_group=self.callback_group,
             ),
             "global": self.create_client(
-                SetParameters, "/global_costmap/global_costmap/set_parameters"
+                SetParameters,
+                "/global_costmap/global_costmap/set_parameters",
+                callback_group=self.callback_group,
             ),
         }
+        self.param_get_clients = {
+            "local": self.create_client(
+                GetParameters,
+                "/local_costmap/local_costmap/get_parameters",
+                callback_group=self.callback_group,
+            ),
+            "global": self.create_client(
+                GetParameters,
+                "/global_costmap/global_costmap/get_parameters",
+                callback_group=self.callback_group,
+            ),
+        }
+        # Values replaced by costmap_reconfig, put back by reset_costmap_config
+        self._originals = cc.OriginalValues()
 
         self.controller_set_client = self.create_client(
-            SetParameters, f"{CONTROLLER_SERVER_NODE}/set_parameters"
+            SetParameters,
+            f"{CONTROLLER_SERVER_NODE}/set_parameters",
+            callback_group=self.callback_group,
         )
         self.controller_get_client = self.create_client(
-            GetParameters, f"{CONTROLLER_SERVER_NODE}/get_parameters"
+            GetParameters,
+            f"{CONTROLLER_SERVER_NODE}/get_parameters",
+            callback_group=self.callback_group,
         )
 
         # Snapshot of original controller params (populated lazily on first use)
@@ -116,10 +137,8 @@ class CostmapReconfigServer(Node):
         # ── Misc setup ────────────────────────────────────────────────────────
         self.validation_rules = cc.load_validation_rules()
         self.get_logger().info(f"Loaded {len(self.validation_rules)} validation rules")
-        self.initialize_config_file()
 
         self.get_logger().info("Costmap Reconfig Server ready.")
-        self.get_logger().info(f"Config file: {self.config_path}")
         self.get_logger().info(f"Costmap params:    {list(cc.PARAM_MAPPING.keys())}")
         self.get_logger().info(
             f"Controller params: {list(cc.CONTROLLER_PARAM_MAPPING.keys())}"
@@ -299,7 +318,7 @@ class CostmapReconfigServer(Node):
             req.parameters = [param]
 
             future = self.controller_set_client.call_async(req)
-            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            _wait(future, 5.0)
 
             if future.done():
                 resp = future.result()
@@ -345,7 +364,7 @@ class CostmapReconfigServer(Node):
             req.names = full_names
 
             future = self.controller_get_client.call_async(req)
-            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            _wait(future, 5.0)
 
             if not future.done():
                 return False
@@ -375,7 +394,7 @@ class CostmapReconfigServer(Node):
             return False
 
     # =========================================================================
-    # Costmap reconfig (delegates validation/YAML to costmap_config)
+    # Costmap reconfig (delegates validation to costmap_config)
     # =========================================================================
 
     def reconfig_callback(self, request, response):
@@ -409,19 +428,16 @@ class CostmapReconfigServer(Node):
                 response.message = validation_result["error"]
                 return response
 
-            update_result = cc.update_yaml_config(
-                self.config_path,
-                request.costmap_type,
-                request.parameter_name,
-                validation_result["converted_value"],
-            )
-
-            if not update_result["success"]:
+            nav2_param_name = cc.PARAM_MAPPING[request.parameter_name]
+            current = self._get_costmap_param(request.costmap_type, nav2_param_name)
+            if current is None:
                 response.success = False
-                response.message = update_result["error"]
+                response.message = (
+                    f"Cannot read {request.costmap_type}_costmap.{nav2_param_name}; "
+                    "not changed, so reset could not undo it"
+                )
                 return response
 
-            nav2_param_name = cc.PARAM_MAPPING[request.parameter_name]
             apply_result = self.apply_to_nav2(
                 request.costmap_type,
                 nav2_param_name,
@@ -429,15 +445,11 @@ class CostmapReconfigServer(Node):
             )
 
             if not apply_result["success"]:
-                cc.update_yaml_config(
-                    self.config_path,
-                    request.costmap_type,
-                    request.parameter_name,
-                    update_result["old_value"],
-                )
                 response.success = False
                 response.message = f"Failed to apply to Nav2: {apply_result['error']}"
                 return response
+
+            self._originals.remember((request.costmap_type, nav2_param_name), current)
 
             response.success = True
             response.message = (
@@ -451,6 +463,25 @@ class CostmapReconfigServer(Node):
             response.message = f"Internal error: {str(e)}"
 
         return response
+
+    def _get_costmap_param(self, costmap_type, param_name):
+        """Return the running value of one costmap parameter, or None."""
+        client = self.param_get_clients[costmap_type]
+        if not client.wait_for_service(timeout_sec=2.0):
+            return None
+        request = GetParameters.Request()
+        request.names = [param_name]
+        future = client.call_async(request)
+        _wait(future, 5.0)
+        result = future.result() if future.done() else None
+        if not result or not result.values:
+            return None
+        value = result.values[0]
+        if value.type == ParameterType.PARAMETER_DOUBLE:
+            return value.double_value
+        if value.type == ParameterType.PARAMETER_INTEGER:
+            return float(value.integer_value)
+        return None
 
     def apply_to_nav2(self, costmap_type, param_name, new_value):
         try:
@@ -471,7 +502,7 @@ class CostmapReconfigServer(Node):
             request.parameters = [param]
 
             future = client.call_async(request)
-            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            _wait(future, 5.0)
 
             if future.done():
                 response = future.result()
@@ -504,52 +535,31 @@ class CostmapReconfigServer(Node):
             return {"success": False, "error": f"Nav2 apply error: {str(e)}"}
 
     def reset_config_callback(self, request, response):
-        try:
-            backup_result = cc.create_backup_config(self.config_path)
-            if backup_result["success"]:
-                self.get_logger().info(
-                    f"Created backup: {backup_result['backup_file']}"
-                )
+        restored, failed = [], []
+        for (costmap_type, param_name), value in self._originals.items():
+            result = self.apply_to_nav2(costmap_type, param_name, value)
+            if result["success"]:
+                self._originals.forget((costmap_type, param_name))
+                restored.append(f"{costmap_type}.{param_name} = {value}")
+            else:
+                failed.append(f"{costmap_type}.{param_name}: {result['error']}")
 
-            cc.write_config(self.config_path, cc.get_original_config())
-
-            response.success = True
-            response.message = (
-                "Config reset to original values. Restart nodes to apply changes."
-            )
-            self.get_logger().info("Costmap config reset to original values")
-
-        except Exception as e:
-            response.success = False
-            response.message = f"Failed to reset config: {str(e)}"
-            self.get_logger().error(f"Error resetting config: {e}")
-
+        response.success = not failed
+        if failed:
+            response.message = "Reset partially failed: " + "; ".join(failed)
+        elif restored:
+            response.message = "Restored " + ", ".join(restored)
+        else:
+            response.message = "Nothing to restore"
+        self.get_logger().info(response.message)
         return response
-
-    def initialize_config_file(self):
-        """
-        Seed the dynamic config file with defaults, never over an existing one.
-
-        Otherwise every node restart would silently discard
-        whatever an operator has tuned since the last colcon build.
-        """
-        if os.path.exists(self.config_path):
-            self.get_logger().info(f"Using existing config file: {self.config_path}")
-            return
-        try:
-            cc.write_config(self.config_path, cc.get_original_config())
-            self.get_logger().info(
-                "Config file did not exist — initialized with original values"
-            )
-        except Exception as e:
-            self.get_logger().error(f"Error initializing config file: {str(e)}")
 
 
 def main():
     rclpy.init()
     node = CostmapReconfigServer()
     try:
-        rclpy.spin(node)
+        rclpy.spin(node, executor=MultiThreadedExecutor())
     except KeyboardInterrupt:
         pass
     finally:
