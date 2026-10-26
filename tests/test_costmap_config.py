@@ -47,23 +47,32 @@ def test_convert_value_returns_none_on_bad_input():
     assert cc.convert_value("not-a-number", ParameterType.PARAMETER_DOUBLE) is None
 
 
-@pytest.mark.parametrize("value", ["0.25", "0.29"])
+def _rcj_costmap(name):
+    rcj = Path(__file__).resolve().parents[1] / "params" / "rcj_param.yaml"
+    return yaml.safe_load(rcj.read_text())[name][name]["ros__parameters"]
+
+
+@pytest.mark.parametrize("name", ["local_costmap", "global_costmap"])
+def test_footprint_radius_of_the_rcj_footprint(name):
+    params = _rcj_costmap(name)
+    assert cc.footprint_radius(params["footprint"], 0.1) == pytest.approx(0.30)
+
+
+def test_footprint_radius_falls_back_to_robot_radius():
+    assert cc.footprint_radius("[]", 0.22) == 0.22
+
+
+@pytest.mark.parametrize("value", [0.25, 0.29])
 def test_inflation_radius_below_footprint_radius_is_rejected(value):
-    # Below the 0.30 m footprint radius the no-go band is cut short.
-    rules = cc.load_validation_rules()
-    assert cc.validate_parameter("inflation_radius", value, rules)["valid"] is False
+    assert "below" in cc.check_inflation_radius(value, 0.30)
 
 
 def test_inflation_radius_at_footprint_radius_is_accepted():
-    rules = cc.load_validation_rules()
-    assert cc.validate_parameter("inflation_radius", "0.30", rules)["valid"] is True
+    assert cc.check_inflation_radius(0.30, 0.30) is None
 
 
 def test_every_mapped_param_exists_on_the_running_local_costmap():
-    rcj = Path(__file__).resolve().parents[1] / "params" / "rcj_param.yaml"
-    params = yaml.safe_load(rcj.read_text())["local_costmap"]["local_costmap"][
-        "ros__parameters"
-    ]
+    params = _rcj_costmap("local_costmap")
     for path in cc.PARAM_MAPPING.values():
         node = params
         for part in path.split("."):

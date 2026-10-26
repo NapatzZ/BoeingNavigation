@@ -6,6 +6,9 @@ the node only makes the parameter-service calls. Changes go to the running
 costmaps only; params/rcj_param.yaml stays the one source of defaults.
 """
 
+import math
+
+import yaml
 from rcl_interfaces.msg import ParameterType
 
 # Parameter mapping: simple name -> full Nav2 parameter path. No robot_radius:
@@ -24,10 +27,6 @@ PARAM_MAPPING = {
     "obstacle_min_range": "obstacle_layer.scan.obstacle_min_range",
     "raytrace_max_range": "obstacle_layer.scan.raytrace_max_range",
 }
-
-# The footprint's corner radius in params/rcj_param.yaml. A smaller inflation
-# radius cuts the no-go band around walls short, so it does nothing useful.
-MIN_INFLATION_RADIUS = 0.30
 
 # Controller parameter registry — single source of truth (simple name ->
 # full path on /controller_server, ParameterType, backward-mode-enable value,
@@ -97,7 +96,7 @@ def load_validation_rules() -> dict:
         "height": {"min": 2, "max": 10},
         "update_frequency": {"min": 1.0, "max": 20.0},
         "publish_frequency": {"min": 0.5, "max": 10.0},
-        "inflation_radius": {"min": MIN_INFLATION_RADIUS, "max": 1.0},
+        "inflation_radius": {"min": 0.1, "max": 1.0},
         "cost_scaling_factor": {"min": 1.0, "max": 10.0},
         "max_obstacle_height": {"min": 0.5, "max": 5.0},
         "obstacle_max_range": {"min": 1.0, "max": 5.0},
@@ -141,6 +140,37 @@ def validate_parameter(param_name, value_str, validation_rules):
         return {"valid": True, "converted_value": converted_value}
     except ValueError:
         return {"valid": False, "error": f"Cannot convert '{value_str}' to number"}
+
+
+def footprint_radius(footprint, robot_radius):
+    """
+    Return the robot's outer radius (m) from a costmap's footprint parameters.
+
+    footprint is the costmap's polygon string, e.g. "[[0.3, 0.0], ...]"; with
+    "[]" the costmap uses robot_radius instead, as Nav2 does.
+    """
+    try:
+        points = yaml.safe_load(footprint) if footprint else []
+    except yaml.YAMLError:
+        points = None
+    if not points:
+        return robot_radius
+    return max(math.hypot(float(x), float(y)) for x, y in points)
+
+
+def check_inflation_radius(value, robot_radius):
+    """
+    Return an error if value is smaller than the robot's radius, else None.
+
+    A smaller inflation radius cuts the no-go band around walls short, so the
+    change would do nothing useful.
+    """
+    if value < robot_radius:
+        return (
+            f"inflation_radius {value} is below the robot's footprint radius "
+            f"{robot_radius:.2f} m"
+        )
+    return None
 
 
 class OriginalValues:

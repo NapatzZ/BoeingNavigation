@@ -428,6 +428,15 @@ class CostmapReconfigServer(Node):
                 response.message = validation_result["error"]
                 return response
 
+            if request.parameter_name == "inflation_radius":
+                error = self._check_inflation_radius(
+                    request.costmap_type, validation_result["converted_value"]
+                )
+                if error:
+                    response.success = False
+                    response.message = error
+                    return response
+
             nav2_param_name = cc.PARAM_MAPPING[request.parameter_name]
             current = self._get_costmap_param(request.costmap_type, nav2_param_name)
             if current is None:
@@ -464,6 +473,18 @@ class CostmapReconfigServer(Node):
 
         return response
 
+    def _check_inflation_radius(self, costmap_type, value):
+        """Return an error if value is below the running costmap's footprint radius."""
+        footprint = self._get_costmap_param(costmap_type, "footprint")
+        robot_radius = self._get_costmap_param(costmap_type, "robot_radius")
+        if footprint is None or robot_radius is None:
+            return (
+                f"Cannot read the {costmap_type}_costmap footprint to check the value"
+            )
+        return cc.check_inflation_radius(
+            value, cc.footprint_radius(footprint, robot_radius)
+        )
+
     def _get_costmap_param(self, costmap_type, param_name):
         """Return the running value of one costmap parameter, or None."""
         client = self.param_get_clients[costmap_type]
@@ -481,6 +502,8 @@ class CostmapReconfigServer(Node):
             return value.double_value
         if value.type == ParameterType.PARAMETER_INTEGER:
             return float(value.integer_value)
+        if value.type == ParameterType.PARAMETER_STRING:
+            return value.string_value
         return None
 
     def apply_to_nav2(self, costmap_type, param_name, new_value):

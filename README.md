@@ -99,7 +99,7 @@ Executables registered in `setup.py`:
 | `navigation_server` | All base-motion actions + location/costmap services (see below) |
 | `save_location` | Writes the current pose into the running map's `<map>.poses.yaml` |
 | `door_detector` | Reports whether the door ahead is open (`/skuba/nav/door_status`, `std_msgs/Bool`, only while switched on) |
-| `costmap_reconfig_server` | Changes costmap values on the running Nav2 (`inflation_radius` ≥ 0.30 m radius); `reset_costmap_config` puts the replaced values back |
+| `costmap_reconfig_server` | Changes costmap values on the running Nav2 (`inflation_radius` no smaller than the costmap's footprint radius); `reset_costmap_config` puts the replaced values back |
 | `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
 | `emergency_stop` | Publishes the twist_mux e-stop lock (`e_stop`), and the same latched state on `/skuba/nav/e_stop` for skuba-state |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
