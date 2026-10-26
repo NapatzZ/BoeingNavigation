@@ -1,11 +1,12 @@
 """
 Pure costmap/controller reconfiguration logic for costmap_reconfig_server.py.
 
-No rclpy import. Everything here is YAML/dict manipulation and validation that
-does not need a live parameter-service call.
+No rclpy import. Validation, name mapping and the memory of replaced values;
+the node only makes the parameter-service calls. Changes go to the running
+costmaps only; params/rcj_param.yaml stays the one source of defaults.
 """
 
-import time
+import math
 
 import yaml
 from rcl_interfaces.msg import ParameterType
@@ -21,10 +22,10 @@ PARAM_MAPPING = {
     "publish_frequency": "publish_frequency",
     "inflation_radius": "inflation_layer.inflation_radius",
     "cost_scaling_factor": "inflation_layer.cost_scaling_factor",
-    "max_obstacle_height": "voxel_layer.max_obstacle_height",
-    "obstacle_max_range": "voxel_layer.scan.obstacle_max_range",
-    "obstacle_min_range": "voxel_layer.scan.obstacle_min_range",
-    "raytrace_max_range": "voxel_layer.scan.raytrace_max_range",
+    "max_obstacle_height": "obstacle_layer.scan.max_obstacle_height",
+    "obstacle_max_range": "obstacle_layer.scan.obstacle_max_range",
+    "obstacle_min_range": "obstacle_layer.scan.obstacle_min_range",
+    "raytrace_max_range": "obstacle_layer.scan.raytrace_max_range",
 }
 
 # Controller parameter registry — single source of truth (simple name ->
@@ -141,128 +142,53 @@ def validate_parameter(param_name, value_str, validation_rules):
         return {"valid": False, "error": f"Cannot convert '{value_str}' to number"}
 
 
-def update_yaml_config(config_path, costmap_type, param_name, new_value):
+def footprint_radius(footprint, robot_radius):
+    """
+    Return the robot's outer radius (m) from a costmap's footprint parameters.
+
+    footprint is the costmap's polygon string, e.g. "[[0.3, 0.0], ...]"; with
+    "[]" the costmap uses robot_radius instead, as Nav2 does.
+    """
     try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-
-        old_value = None
-        costmap_key = f"{costmap_type}_costmap"
-
-        if costmap_key not in config:
-            return {
-                "success": False,
-                "error": f"Costmap '{costmap_type}' not found in config",
-            }
-
-        costmap_config = config[costmap_key][costmap_key]["ros__parameters"]
-
-        if param_name in costmap_config:
-            old_value = costmap_config[param_name]
-            costmap_config[param_name] = new_value
-        else:
-            found = False
-            for section_name, section_config in costmap_config.items():
-                if isinstance(section_config, dict) and param_name in section_config:
-                    old_value = section_config[param_name]
-                    section_config[param_name] = new_value
-                    found = True
-                    break
-                if isinstance(section_config, dict):
-                    for nested_name, nested_config in section_config.items():
-                        if (
-                            isinstance(nested_config, dict)
-                            and param_name in nested_config
-                        ):
-                            old_value = nested_config[param_name]
-                            nested_config[param_name] = new_value
-                            found = True
-                            break
-                    if found:
-                        break
-            if not found:
-                return {
-                    "success": False,
-                    "error": f"Parameter '{param_name}' not found in {costmap_type}_costmap",
-                }
-
-        with open(config_path, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, indent=2)
-
-        return {"success": True, "old_value": old_value}
-
-    except Exception as e:
-        return {"success": False, "error": f"Failed to update YAML: {str(e)}"}
+        points = yaml.safe_load(footprint) if footprint else []
+    except yaml.YAMLError:
+        points = None
+    if not points:
+        return robot_radius
+    return max(math.hypot(float(x), float(y)) for x, y in points)
 
 
-def create_backup_config(config_path):
-    try:
-        timestamp = int(time.time())
-        backup_file = config_path.replace(".yaml", f"_backup_{timestamp}.yaml")
-        with open(config_path, "r") as src:
-            content = src.read()
-        with open(backup_file, "w") as dst:
-            dst.write(content)
-        return {"success": True, "backup_file": backup_file}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+def check_inflation_radius(value, robot_radius):
+    """
+    Return an error if value is smaller than the robot's radius, else None.
+
+    A smaller inflation radius cuts the no-go band around walls short, so the
+    change would do nothing useful.
+    """
+    if value < robot_radius:
+        return (
+            f"inflation_radius {value} is below the robot's footprint radius "
+            f"{robot_radius:.2f} m"
+        )
+    return None
 
 
-def get_original_config() -> dict:
-    return {
-        "local_costmap": {
-            "local_costmap": {
-                "ros__parameters": {
-                    "resolution": 0.05,
-                    "width": 3,
-                    "height": 3,
-                    "update_frequency": 5.0,
-                    "publish_frequency": 2.0,
-                    "inflation_layer": {
-                        "plugin": "nav2_costmap_2d::InflationLayer",
-                        "cost_scaling_factor": 2.0,
-                        "inflation_radius": 0.3,
-                    },
-                    "voxel_layer": {
-                        "plugin": "nav2_costmap_2d::VoxelLayer",
-                        "enabled": True,
-                        "max_obstacle_height": 2.0,
-                        "scan": {
-                            "obstacle_max_range": 2.5,
-                            "obstacle_min_range": 0.3,
-                            "raytrace_max_range": 3.0,
-                        },
-                    },
-                }
-            }
-        },
-        "global_costmap": {
-            "global_costmap": {
-                "ros__parameters": {
-                    "resolution": 0.05,
-                    "update_frequency": 1.0,
-                    "publish_frequency": 1.0,
-                    "track_unknown_space": True,
-                    "inflation_layer": {
-                        "plugin": "nav2_costmap_2d::InflationLayer",
-                        "cost_scaling_factor": 3.0,
-                        "inflation_radius": 0.35,
-                    },
-                    "obstacle_layer": {
-                        "plugin": "nav2_costmap_2d::ObstacleLayer",
-                        "enabled": True,
-                        "scan": {
-                            "obstacle_max_range": 2.5,
-                            "obstacle_min_range": 0.3,
-                            "raytrace_max_range": 3.0,
-                        },
-                    },
-                }
-            }
-        },
-    }
+class OriginalValues:
+    """
+    Remember the value each parameter had before its first change.
 
+    Keys are (costmap, nav2 name). Only the first change of a key is kept, so a
+    reset goes back to the value Nav2 started with, not to an earlier tweak.
+    """
 
-def write_config(config_path, config: dict) -> None:
-    with open(config_path, "w") as f:
-        yaml.dump(config, f, default_flow_style=False, indent=2)
+    def __init__(self):
+        self._values = {}
+
+    def remember(self, key, value):
+        self._values.setdefault(key, value)
+
+    def items(self):
+        return list(self._values.items())
+
+    def forget(self, key):
+        self._values.pop(key, None)
