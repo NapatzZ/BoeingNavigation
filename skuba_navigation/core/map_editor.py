@@ -19,6 +19,7 @@ save_location writes:
 
 import copy
 import shutil
+import socket
 import time
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
@@ -245,3 +246,20 @@ def save_locations(yaml_path, locations):
     data = locations_to_yaml_data(locations, existing)
     write_poses_file(yaml_path, data)
     return str(yaml_path)
+
+
+def browser_host(bind_host, lan_ip):
+    """Host to print in the editor's URL: bound to every address means use the robot's."""
+    return lan_ip if bind_host in ("0.0.0.0", "") else bind_host
+
+
+def primary_ip():
+    """Return this machine's address on its network, or "localhost" if it has none."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(
+                ("192.0.2.1", 80)
+            )  # a UDP connect only picks a route; nothing is sent
+            return sock.getsockname()[0]
+    except OSError:
+        return "localhost"

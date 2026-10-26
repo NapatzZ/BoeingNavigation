@@ -124,7 +124,8 @@ def main():
     server = ThreadingHTTPServer(
         (args.host, args.port), make_handler(maps_root, html_path)
     )
-    print(f"Map editor: http://{args.host}:{args.port}")
+    host = editor.browser_host(args.host, editor.primary_ip())
+    print(f"Map editor: http://{host}:{args.port}")
     print(f"  maps:      {maps_root}")
     try:
         server.serve_forever()
