@@ -14,6 +14,9 @@
     • KeepRunningUntilFailure keeps FollowPath running CONTINUOUSLY, so the
       controller never restarts — this is what makes motion smooth instead
       of the stutter you get from re-sending NavigateToPose goals.
+    • When FollowPath fails (RPP "collision ahead" against a door frame,
+      carrying a bag out in front), the local costmap is cleared and the
+      robot backs up 15 cm, then goes on -- instead of ending the goal.
 
   Tuning
     • RateController hz : how often we replan toward the newest person pose.
@@ -22,18 +25,24 @@
 -->
 <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
-    <PipelineSequence name="NavigateWithReplanning">
-      <RateController hz="2.0">
-        <Sequence>
-          <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
-            <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
-          </GoalUpdater>
-          <TruncatePath distance="0.5" input_path="{path}" output_path="{truncated_path}"/>
-        </Sequence>
-      </RateController>
-      <KeepRunningUntilFailure>
-        <FollowPath path="{truncated_path}" controller_id="FollowPath"/>
-      </KeepRunningUntilFailure>
-    </PipelineSequence>
+    <RecoveryNode number_of_retries="1000" name="FollowWithRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="2.0">
+          <Sequence>
+            <GoalUpdater input_goal="{goal}" output_goal="{updated_goal}">
+              <ComputePathToPose goal="{updated_goal}" path="{path}" planner_id="GridBased"/>
+            </GoalUpdater>
+            <TruncatePath distance="0.5" input_path="{path}" output_path="{truncated_path}"/>
+          </Sequence>
+        </RateController>
+        <KeepRunningUntilFailure>
+          <FollowPath path="{truncated_path}" controller_id="FollowPath"/>
+        </KeepRunningUntilFailure>
+      </PipelineSequence>
+      <Sequence name="UnstuckFromAWall">
+        <ClearEntireCostmap name="ClearLocalCostmap-Follow" service_name="local_costmap/clear_entirely_local_costmap"/>
+        <BackUp backup_dist="0.15" backup_speed="0.05"/>
+      </Sequence>
+    </RecoveryNode>
   </BehaviorTree>
 </root>

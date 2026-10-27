@@ -49,6 +49,7 @@ setup(
         "console_scripts": [
             "navigation_server = skuba_navigation.nodes.navigation_server_node:main",
             "filter_lidar = skuba_navigation.nodes.filter_lidar:main",
+            "cloud_self_filter = skuba_navigation.nodes.cloud_self_filter:main",
             "map_save_cli = skuba_navigation.nodes.map_save_cli:main",
             "costmap_reconfig_server = skuba_navigation.nodes.costmap_reconfig_server:main",
             "door_detector = skuba_navigation.nodes.door_detector:main",

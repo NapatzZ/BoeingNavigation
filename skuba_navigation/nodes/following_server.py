@@ -79,6 +79,11 @@ class FollowingServer(Node):
         self._goal_handle = None  # active Nav2 goal handle
         self._goal_active = False  # a goal is sent and not finished
         self._send_in_progress = False  # send_goal_async awaiting acceptance
+        # True: a stale pose still (re)seeds the goal -> drive to where the
+        # person was last seen instead of waiting for re-acquisition.
+        self._keep_last = bool(
+            self.declare_parameter("keep_last_pose", False).value
+        )
 
         # ── Behavior-tree path ───────────────────────────────────────────── #
         self._bt_path = os.path.join(
@@ -149,13 +154,24 @@ class FollowingServer(Node):
             )
             return
         pose_age = time.perf_counter() - self._person_pose_t
-        if not pose_is_usable(self._person_pose, pose_age, POSE_TIMEOUT_S):
+        if not pose_is_usable(
+            self._person_pose, pose_age, POSE_TIMEOUT_S, self._keep_last
+        ):
             self.get_logger().warn(
                 "Person pose is stale — waiting for re-acquisition before sending goal",
                 throttle_duration_sec=3.0,
             )
             return
 
+        if pose_age > POSE_TIMEOUT_S:
+            p = self._person_pose.pose.position
+            self.get_logger().info(
+                f"Person pose is {pose_age:.0f} s old — going to where the person "
+                f"was last seen ({p.x:.2f}, {p.y:.2f})"
+            )
+        # The goal's own stamp may be old; Nav2 only needs the frame.
+        self._person_pose.header.stamp.sec = 0
+        self._person_pose.header.stamp.nanosec = 0
         self._send_goal(self._person_pose)
 
     # ─────────────────────────── Nav2 plumbing ──────────────────────────── #

@@ -82,7 +82,7 @@ no edits.
 Not meant to be run directly, but they are valid standalone launches:
 
 - `nav2_bringup_launch.py` — nav2 core (localization + navigation), plus
-  `emergency_stop`, `filter_lidar`, `twist_mux`, and the measured `base_link -> laser`
+  `emergency_stop`, `filter_lidar`, `cloud_self_filter`, `twist_mux`, and the measured `base_link -> laser`
   static transform (`publish_laser_tf`, default `true` until skuba_description's
   `laser_joint` is corrected). Included by both task launches. `use_localization:=False`
   skips AMCL (used by `nav2_slam_bringup_launch.py`'s mapping stack, which
@@ -100,7 +100,8 @@ Executables registered in `setup.py`:
 | `save_location` | Writes the current pose into the running map's `<map>.poses.yaml` |
 | `door_detector` | Reports whether the door ahead is open (`/skuba/nav/door_status`, `std_msgs/Bool`, only while switched on) |
 | `costmap_reconfig_server` | Changes costmap values on the running Nav2 (`inflation_radius` no smaller than the costmap's footprint radius); `reset_costmap_config` puts the replaced values back |
-| `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person |
+| `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person (see "Following a person" below) |
+| `cloud_self_filter` | Republishes the head camera's cloud without the robot itself (points inside the published footprint + `margin_m`) on `/skuba/nav/filtered_points`, for the costmaps' depth layers (`params/follower_param.yaml`) |
 | `emergency_stop` | Publishes the twist_mux e-stop lock (`e_stop`), and the same latched state on `/skuba/nav/e_stop` for skuba-state |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
@@ -155,6 +156,34 @@ All under `/skuba/nav/`.
 | `enable_backward_mode`, `disable_backward_mode` | `costmap_reconfig_server` |
 | `toggle_following` (`std_srvs/SetBool`) | `following_server` |
 | `filter_lidar` | `filter_lidar` |
+
+### Following a person (Carry My Luggage)
+
+`following_server` sends one `NavigateToPose` with `follow_point.xml`; its
+GoalUpdater keeps the goal on `/skuba/nav/person_pose` (`goal_updater_topic`
+under `bt_navigator`, in every params file), which skuba_vision's
+`person_pose_node` publishes (YOLO person + depth -> map). `TruncatePath`
+stops 0.5 m short of the person. If `FollowPath` fails (e.g. RPP "collision
+ahead" on a door frame while the hand carries a bag), the tree clears the local
+costmap, backs up 15 cm and goes on instead of ending the goal.
+
+| param | default | |
+| --- | --- | --- |
+| `keep_last_pose` | `false` | `true`: a pose older than 5 s still (re)seeds the goal -- the robot goes to where the person was last seen instead of waiting for them to reappear |
+
+**`params/follower_param.yaml`** is the params file for this task (pass it as
+`params_file`): `nav2_params.yaml` plus what following through doors with a bag,
+and bringing it back past small things on the floor (TEAM1-008), needed in sim:
+
+* local STVL from `/skuba/nav/filtered_points` (`cloud_self_filter`: the head
+  camera without the arm and the bag it carries) out to 2.5 m -- the floor is
+  first in view ~1.2 m out; out of view it decays in 2 s;
+* a global `depth_layer` (4-45 cm, kept until a ray sees past): the lidar
+  passes over a shoe or a toy. Off by default -- a followed person's legs and
+  the chairs round them would ring the goal -- the task sets
+  `/global_costmap/global_costmap depth_layer.enabled` to `true` for the way back;
+* global inflation 1.5 / 0.60 m (plans in the middle of 0.65 m doors) and RPP
+  lookahead 0.45 m (a long carrot cuts the door corner).
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in
 this package — it is served by `skuba_vision`'s `follower` node (different

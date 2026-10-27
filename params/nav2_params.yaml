@@ -164,6 +164,7 @@ bt_navigator:
     global_frame: map
     robot_base_frame: base_link
     odom_topic: /odom
+    goal_updater_topic: /skuba/nav/person_pose  # follow_point.xml's GoalUpdater (as rcj_param.yaml)
     bt_loop_duration: 10
     default_server_timeout: 20
     wait_for_service_timeout: 1000
