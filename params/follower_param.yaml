@@ -323,7 +323,7 @@ controller_server:
 #     → No raytrace geometry failures → no permanent ghost obstacles.
 #
 # Dimensions and frequencies match rcj_param.yaml (5×5m, 5 Hz); the footprint
-# here is a 0.25 m circle (rcj_param.yaml: 0.3 m).
+# here is a 0.207 m circle, as in rcj_param.yaml (the base + 3 cm).
 #
 # point_cloud_sensor source requires a depth camera publishing PointCloud2.
 # If no depth camera is available, remove point_cloud_sensor from
@@ -340,10 +340,11 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      # A 0.25 m circle as a 16-sided polygon (no robot_radius), so the costmap
+      # A 0.207 m circle as a 16-sided polygon (no robot_radius) -- the base's
+      # 0.177 m radius (skuba_description base_link) + 3 cm -- so the costmap
       # runs in polygon mode and skuba_manipulation's arm_footprint can grow it
       # on <costmap>/footprint. Keep equal to the global_costmap footprint.
-      footprint: "[[0.25, 0.0], [0.231, 0.096], [0.177, 0.177], [0.096, 0.231], [0.0, 0.25], [-0.096, 0.231], [-0.177, 0.177], [-0.231, 0.096], [-0.25, 0.0], [-0.231, -0.096], [-0.177, -0.177], [-0.096, -0.231], [0.0, -0.25], [0.096, -0.231], [0.177, -0.177], [0.231, -0.096]]"
+      footprint: "[[0.207, 0.0], [0.191, 0.079], [0.146, 0.146], [0.079, 0.191], [0.0, 0.207], [-0.079, 0.191], [-0.146, 0.146], [-0.191, 0.079], [-0.207, 0.0], [-0.191, -0.079], [-0.146, -0.146], [-0.079, -0.191], [0.0, -0.207], [0.079, -0.191], [0.146, -0.146], [0.191, -0.079]]"
       plugins: ["obstacle_layer", "stvl_layer", "inflation_layer"]
 
       inflation_layer:
@@ -437,10 +438,11 @@ global_costmap:
       publish_frequency: 5.0
       global_frame: map
       robot_base_frame: base_link
-      # A 0.25 m circle as a 16-sided polygon (no robot_radius), so the costmap
+      # A 0.207 m circle as a 16-sided polygon (no robot_radius) -- the base's
+      # 0.177 m radius (skuba_description base_link) + 3 cm -- so the costmap
       # runs in polygon mode and skuba_manipulation's arm_footprint can grow it
       # on <costmap>/footprint. Keep equal to the local_costmap footprint.
-      footprint: "[[0.25, 0.0], [0.231, 0.096], [0.177, 0.177], [0.096, 0.231], [0.0, 0.25], [-0.096, 0.231], [-0.177, 0.177], [-0.231, 0.096], [-0.25, 0.0], [-0.231, -0.096], [-0.177, -0.177], [-0.096, -0.231], [0.0, -0.25], [0.096, -0.231], [0.177, -0.177], [0.231, -0.096]]"
+      footprint: "[[0.207, 0.0], [0.191, 0.079], [0.146, 0.146], [0.079, 0.191], [0.0, 0.207], [-0.079, 0.191], [-0.146, 0.146], [-0.191, 0.079], [-0.207, 0.0], [-0.191, -0.079], [-0.146, -0.146], [-0.079, -0.191], [0.0, -0.207], [0.079, -0.191], [0.146, -0.146], [0.191, -0.079]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "depth_layer", "inflation_layer"]
