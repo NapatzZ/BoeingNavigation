@@ -17,6 +17,12 @@ def test_pose_is_usable_checks_freshness():
     assert pose_is_usable(object(), pose_age_s=5.1, pose_timeout_s=5.0) is False
 
 
+def test_keep_last_takes_a_stale_pose():
+    """Out of view the robot still goes to where the person was last seen."""
+    assert pose_is_usable(object(), 60.0, 5.0, keep_last=True) is True
+    assert pose_is_usable(None, 0.0, 5.0, keep_last=True) is False
+
+
 def test_goal_status_name_known_statuses():
     assert goal_status_name(GoalStatus.STATUS_SUCCEEDED) == "SUCCEEDED"
     assert goal_status_name(GoalStatus.STATUS_ABORTED) == "ABORTED"

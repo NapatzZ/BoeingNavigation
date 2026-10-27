@@ -9,9 +9,18 @@ GOAL_STATUS_NAMES = {
 }
 
 
-def pose_is_usable(person_pose, pose_age_s: float, pose_timeout_s: float) -> bool:
-    """Whether the stored person pose is fresh enough to seed a goal."""
-    return person_pose is not None and pose_age_s <= pose_timeout_s
+def pose_is_usable(
+    person_pose, pose_age_s: float, pose_timeout_s: float, keep_last: bool = False
+) -> bool:
+    """
+    Whether the stored person pose may seed a goal.
+
+    keep_last: any pose received so far will do, however old -- the robot goes to
+    where the person was last seen instead of waiting for them to reappear.
+    """
+    if person_pose is None:
+        return False
+    return keep_last or pose_age_s <= pose_timeout_s
 
 
 def goal_status_name(status) -> str:

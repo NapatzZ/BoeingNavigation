@@ -204,6 +204,15 @@ def generate_launch_description():
                 name="filter_lidar",
                 output="screen",
             ),
+            # The head camera's cloud without the robot (the arm and what it
+            # carries): the costmaps' depth_layer reads /skuba/nav/filtered_points.
+            Node(
+                package="skuba_navigation",
+                executable="cloud_self_filter",
+                name="cloud_self_filter",
+                output="screen",
+                parameters=[{"use_sim_time": use_sim_time}],
+            ),
             # On by default: this is the measured laser mount, while
             # skuba_description's laser_joint is currently wrong. When both
             # publish, the laser frame flickers between them -- fix the URDF,

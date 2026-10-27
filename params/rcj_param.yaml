@@ -168,10 +168,11 @@ controller_server:
 
       # Regulated Pure Pursuit
       desired_linear_vel: 0.5
-      lookahead_dist: 0.7
+      # Short: a long carrot cuts the corner of a door frame.
+      lookahead_dist: 0.45
       min_lookahead_dist: 0.20
-      max_lookahead_dist: 1.0
-      lookahead_time: 1.5
+      max_lookahead_dist: 0.6
+      lookahead_time: 1.0
       # rotate_to_heading_angular_vel: 0.4
       transform_tolerance: 0.5
       use_velocity_scaled_lookahead_dist: true
@@ -254,7 +255,7 @@ global_costmap:
       footprint: "[[0.3, 0.0], [0.277, 0.115], [0.212, 0.212], [0.115, 0.277], [0.0, 0.3], [-0.115, 0.277], [-0.212, 0.212], [-0.277, 0.115], [-0.3, 0.0], [-0.277, -0.115], [-0.212, -0.212], [-0.115, -0.277], [0.0, -0.3], [0.115, -0.277], [0.212, -0.212], [0.277, -0.115]]"
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "depth_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -272,10 +273,44 @@ global_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
+      # Things under the lidar (a shoe, a toy -- TEAM1-008) from the head camera.
+      # cloud_self_filter has dropped the robot itself (the arm, what the hand
+      # carries); marked between 4 and 45 cm, kept until a ray sees past them.
+      # The lidar (~18 cm) passes over them and the floor is first in view
+      # ~1.2 m out, so they must be remembered once seen.
+      # Not in the local costmap: a VoxelLayer keeps what it marked, and a person
+      # walking through a door ahead leaves their legs marked in it.
+      # Off by default in the global costmap: following a person, their legs and
+      # the chairs round them ring the goal and the planner finds no path. The
+      # task turns it on (depth_layer.enabled) for drives where the floor
+      # matters -- the way back with the bag.
+      depth_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: False
+        combination_method: 1
+        publish_voxel_map: False
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 10
+        mark_threshold: 0
+        unknown_threshold: 15
+        observation_sources: depth
+        depth:
+          topic: /skuba/nav/filtered_points
+          data_type: "PointCloud2"
+          min_obstacle_height: 0.04
+          max_obstacle_height: 0.45
+          obstacle_max_range: 2.5
+          raytrace_max_range: 3.0
+          clearing: True
+          marking: True
+      # A gentler slope than the local costmap's: plans keep to the middle of a
+      # door instead of hugging a frame the robot then catches (carrying a bag
+      # the footprint is longer than wide).
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.5
-        inflation_radius: 0.45
+        cost_scaling_factor: 1.5
+        inflation_radius: 0.60
       always_send_full_costmap: True
 
 # ADDED: map_server section — required in Humble.
