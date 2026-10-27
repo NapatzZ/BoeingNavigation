@@ -173,11 +173,12 @@ costmap, backs up 15 cm and goes on instead of ending the goal.
 
 Small things on the floor (TEAM1-008) are under the lidar: `rcj_param.yaml`'s
 `depth_layer` marks 4-45 cm from `/skuba/nav/filtered_points` and keeps them
-until a ray sees past. Global costmap only (in a local costmap the legs of a
-person walking through a door ahead stay marked in it), off by default: a
-followed person's legs and the chairs round them would ring the goal -- the
-task sets `/global_costmap/global_costmap depth_layer.enabled` to
-`true` for drives where the floor matters (the way back with the bag). The global
+until a ray sees past -- in the global costmap, off by default: a followed
+person's legs and the chairs round them would ring the goal -- the task sets `/global_costmap/global_costmap depth_layer.enabled` to
+`true` for drives where the floor matters (the way back with the bag). The
+local costmap sees the same cloud through an STVL `stvl_layer` (out to 2.5 m;
+what is out of view decays in 2 s, so a person walking through a door ahead
+does not stay marked in it). The global
 costmap's inflation (1.5 / 0.6 m) keeps plans in the middle of doors, and RPP's
 short lookahead (0.45 m) keeps the robot on them.
 
