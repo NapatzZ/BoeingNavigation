@@ -161,7 +161,7 @@ All under `/skuba/nav/`.
 
 `following_server` sends one `NavigateToPose` with `follow_point.xml`; its
 GoalUpdater keeps the goal on `/skuba/nav/person_pose` (`goal_updater_topic`
-under `bt_navigator`, in both params files), which skuba_vision's
+under `bt_navigator`, in every params file), which skuba_vision's
 `person_pose_node` publishes (YOLO person + depth -> map). `TruncatePath`
 stops 0.5 m short of the person. If `FollowPath` fails (e.g. RPP "collision
 ahead" on a door frame while the hand carries a bag), the tree clears the local
@@ -171,16 +171,19 @@ costmap, backs up 15 cm and goes on instead of ending the goal.
 | --- | --- | --- |
 | `keep_last_pose` | `false` | `true`: a pose older than 5 s still (re)seeds the goal -- the robot goes to where the person was last seen instead of waiting for them to reappear |
 
-Small things on the floor (TEAM1-008) are under the lidar: `rcj_param.yaml`'s
-`depth_layer` marks 4-45 cm from `/skuba/nav/filtered_points` and keeps them
-until a ray sees past -- in the global costmap, off by default: a followed
-person's legs and the chairs round them would ring the goal -- the task sets `/global_costmap/global_costmap depth_layer.enabled` to
-`true` for drives where the floor matters (the way back with the bag). The
-local costmap sees the same cloud through an STVL `stvl_layer` (out to 2.5 m;
-what is out of view decays in 2 s, so a person walking through a door ahead
-does not stay marked in it). The global
-costmap's inflation (1.5 / 0.6 m) keeps plans in the middle of doors, and RPP's
-short lookahead (0.45 m) keeps the robot on them.
+**`params/follower_param.yaml`** is the params file for this task (pass it as
+`params_file`): `nav2_params.yaml` plus what following through doors with a bag,
+and bringing it back past small things on the floor (TEAM1-008), needed in sim:
+
+* local STVL from `/skuba/nav/filtered_points` (`cloud_self_filter`: the head
+  camera without the arm and the bag it carries) out to 2.5 m -- the floor is
+  first in view ~1.2 m out; out of view it decays in 2 s;
+* a global `depth_layer` (4-45 cm, kept until a ray sees past): the lidar
+  passes over a shoe or a toy. Off by default -- a followed person's legs and
+  the chairs round them would ring the goal -- the task sets
+  `/global_costmap/global_costmap depth_layer.enabled` to `true` for the way back;
+* global inflation 1.5 / 0.60 m (plans in the middle of 0.65 m doors) and RPP
+  lookahead 0.45 m (a long carrot cuts the door corner).
 
 The person-following service `/skuba/cheesecake/nav/following` is **not** in
 this package — it is served by `skuba_vision`'s `follower` node (different
