@@ -1,4 +1,6 @@
-"""Unit tests for costmap_reconfig_server.py's pure validation/YAML/dict logic."""
+"""Unit tests for costmap_reconfig_server.py's pure validation and memory logic."""
+
+from pathlib import Path
 
 import pytest
 import yaml
@@ -45,78 +47,52 @@ def test_convert_value_returns_none_on_bad_input():
     assert cc.convert_value("not-a-number", ParameterType.PARAMETER_DOUBLE) is None
 
 
-def _write_sample_config(path):
-    path.write_text(
-        yaml.dump(
-            {
-                "local_costmap": {
-                    "local_costmap": {
-                        "ros__parameters": {
-                            "update_frequency": 5.0,
-                            "inflation_layer": {"cost_scaling_factor": 2.0},
-                        }
-                    }
-                }
-            }
-        )
-    )
+def _rcj_costmap(name):
+    rcj = Path(__file__).resolve().parents[1] / "params" / "rcj_param.yaml"
+    return yaml.safe_load(rcj.read_text())[name][name]["ros__parameters"]
 
 
-def test_update_yaml_config_top_level_param(tmp_path):
-    config_path = tmp_path / "costmap_dynamic_config.yaml"
-    _write_sample_config(config_path)
-
-    result = cc.update_yaml_config(str(config_path), "local", "update_frequency", 2.0)
-    assert result == {"success": True, "old_value": 5.0}
-
-    on_disk = yaml.safe_load(config_path.read_text())
-    assert (
-        on_disk["local_costmap"]["local_costmap"]["ros__parameters"]["update_frequency"]
-        == 2.0
-    )
+@pytest.mark.parametrize("name", ["local_costmap", "global_costmap"])
+def test_footprint_radius_of_the_rcj_footprint(name):
+    params = _rcj_costmap(name)
+    assert cc.footprint_radius(params["footprint"], 0.1) == pytest.approx(0.30)
 
 
-def test_update_yaml_config_nested_param(tmp_path):
-    config_path = tmp_path / "costmap_dynamic_config.yaml"
-    _write_sample_config(config_path)
-
-    result = cc.update_yaml_config(
-        str(config_path), "local", "cost_scaling_factor", 4.0
-    )
-    assert result == {"success": True, "old_value": 2.0}
-
-    on_disk = yaml.safe_load(config_path.read_text())
-    nested = on_disk["local_costmap"]["local_costmap"]["ros__parameters"][
-        "inflation_layer"
-    ]
-    assert nested["cost_scaling_factor"] == 4.0
+def test_footprint_radius_falls_back_to_robot_radius():
+    assert cc.footprint_radius("[]", 0.22) == 0.22
 
 
-def test_update_yaml_config_unknown_param_fails(tmp_path):
-    config_path = tmp_path / "costmap_dynamic_config.yaml"
-    _write_sample_config(config_path)
-
-    result = cc.update_yaml_config(str(config_path), "local", "does_not_exist", 1.0)
-    assert result["success"] is False
+@pytest.mark.parametrize("value", [0.25, 0.29])
+def test_inflation_radius_below_footprint_radius_is_rejected(value):
+    assert "below" in cc.check_inflation_radius(value, 0.30)
 
 
-def test_update_yaml_config_unknown_costmap_fails(tmp_path):
-    config_path = tmp_path / "costmap_dynamic_config.yaml"
-    _write_sample_config(config_path)
-
-    result = cc.update_yaml_config(str(config_path), "nope", "update_frequency", 1.0)
-    assert result["success"] is False
+def test_inflation_radius_at_footprint_radius_is_accepted():
+    assert cc.check_inflation_radius(0.30, 0.30) is None
 
 
-def test_create_backup_config_copies_content(tmp_path):
-    config_path = tmp_path / "costmap_dynamic_config.yaml"
-    config_path.write_text("update_frequency: 5.0\n")
+def test_every_mapped_param_exists_on_the_running_local_costmap():
+    params = _rcj_costmap("local_costmap")
+    for path in cc.PARAM_MAPPING.values():
+        node = params
+        for part in path.split("."):
+            assert part in node, f"{path} is not in rcj_param.yaml"
+            node = node[part]
 
-    result = cc.create_backup_config(str(config_path))
-    assert result["success"] is True
-    assert result["backup_file"] != str(config_path)
-    with open(result["backup_file"]) as f:
-        assert f.read() == "update_frequency: 5.0\n"
+
+def test_original_values_keep_the_first_value_only():
+    originals = cc.OriginalValues()
+    originals.remember(("local", "inflation_layer.inflation_radius"), 0.40)
+    originals.remember(("local", "inflation_layer.inflation_radius"), 0.35)
+    assert originals.items() == [(("local", "inflation_layer.inflation_radius"), 0.40)]
+
+
+def test_original_values_forget_after_restore():
+    originals = cc.OriginalValues()
+    originals.remember(("global", "inflation_layer.inflation_radius"), 0.40)
+    originals.forget(("global", "inflation_layer.inflation_radius"))
+    originals.forget(("global", "never_set"))  # no error
+    assert originals.items() == []
 
 
 def test_controller_param_tables_stay_consistent_after_dedup():

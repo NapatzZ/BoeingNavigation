@@ -173,3 +173,15 @@ def test_committed_poses_files_belong_to_a_map_and_load():
         map_yaml = path.with_name(path.name.replace(".poses.yaml", ".yaml"))
         assert map_yaml.exists(), f"{path.name} has no map next to it"
         assert LocationStore(path).names()
+
+
+def test_url_shows_the_robot_ip_when_bound_to_every_address():
+    assert ed.browser_host("0.0.0.0", "192.168.0.57") == "192.168.0.57"
+
+
+def test_url_keeps_an_explicit_host():
+    assert ed.browser_host("127.0.0.1", "192.168.0.57") == "127.0.0.1"
+
+
+def test_primary_ip_is_an_address():
+    assert ed.primary_ip().count(".") == 3 or ed.primary_ip() == "localhost"
