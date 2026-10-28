@@ -204,11 +204,12 @@ local_costmap:
       width: 5
       height: 5
       resolution: 0.05
-      # A 0.3 m circle as a 16-sided polygon (no robot_radius): skuba_manipulation's
+      # A 0.207 m circle as a 16-sided polygon (no robot_radius) -- the base's
+      # 0.177 m radius (skuba_description base_link) + 3 cm: skuba_manipulation's
       # arm_footprint publishes on <costmap>/footprint and grows it with the arm
       # (and what the jaw holds), back to this at staging. Keep equal to the
       # global_costmap footprint and arm_footprint's base_radius / base_segments.
-      footprint: "[[0.3, 0.0], [0.277, 0.115], [0.212, 0.212], [0.115, 0.277], [0.0, 0.3], [-0.115, 0.277], [-0.212, 0.212], [-0.277, 0.115], [-0.3, 0.0], [-0.277, -0.115], [-0.212, -0.212], [-0.115, -0.277], [0.0, -0.3], [0.115, -0.277], [0.212, -0.212], [0.277, -0.115]]"
+      footprint: "[[0.207, 0.0], [0.191, 0.079], [0.146, 0.146], [0.079, 0.191], [0.0, 0.207], [-0.079, 0.191], [-0.146, 0.146], [-0.191, 0.079], [-0.207, 0.0], [-0.191, -0.079], [-0.146, -0.146], [-0.079, -0.191], [0.0, -0.207], [0.079, -0.191], [0.146, -0.146], [0.191, -0.079]]"
       plugins: ["obstacle_layer", "denoise_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -247,11 +248,12 @@ global_costmap:
       publish_frequency: 5.0
       global_frame: map
       robot_base_frame: base_link
-      # A 0.3 m circle as a 16-sided polygon (no robot_radius): skuba_manipulation's
+      # A 0.207 m circle as a 16-sided polygon (no robot_radius) -- the base's
+      # 0.177 m radius (skuba_description base_link) + 3 cm: skuba_manipulation's
       # arm_footprint publishes on <costmap>/footprint and grows it with the arm
       # (and what the jaw holds), back to this at staging. Keep equal to the
       # local_costmap footprint and arm_footprint's base_radius / base_segments.
-      footprint: "[[0.3, 0.0], [0.277, 0.115], [0.212, 0.212], [0.115, 0.277], [0.0, 0.3], [-0.115, 0.277], [-0.212, 0.212], [-0.277, 0.115], [-0.3, 0.0], [-0.277, -0.115], [-0.212, -0.212], [-0.115, -0.277], [0.0, -0.3], [0.115, -0.277], [0.212, -0.212], [0.277, -0.115]]"
+      footprint: "[[0.207, 0.0], [0.191, 0.079], [0.146, 0.146], [0.079, 0.191], [0.0, 0.207], [-0.079, 0.191], [-0.146, 0.146], [-0.191, 0.079], [-0.207, 0.0], [-0.191, -0.079], [-0.146, -0.146], [-0.079, -0.191], [0.0, -0.207], [0.079, -0.191], [0.146, -0.146], [0.191, -0.079]]"
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
