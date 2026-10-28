@@ -1,0 +1,27 @@
+positions:
+  inspection_point:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 6.123233995736766e-17
+        x: 0.0
+        y: 0.0
+        z: 1.0
+      position:
+        x: 0.566342371922552
+        y: 1.368680402458157
+        z: 0.0
+  start:
+    header:
+      frame_id: map
+    pose:
+      orientation:
+        w: 0.6925379522039539
+        x: 0.0
+        y: 0.0
+        z: 0.7213814419273302
+      position:
+        x: -1.3450779508709036
+        y: -0.4457528961323298
+        z: 0.0
