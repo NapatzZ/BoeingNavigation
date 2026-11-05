@@ -29,7 +29,8 @@
 # The e_stop LOCK (std_msgs/Bool) sits above everything: while it publishes
 # `true`, twist_mux blocks every input (priority < 255) and the base receives no
 # command → the robot stops. timeout: 0.0 disables lock expiry so the lock state
-# is driven purely by the Bool value (emergency_stop.py latches it permanently).
+# is driven purely by the Bool value (emergency_stop.py publishes the live button
+# level: True while pressed, False once released).
 twist_mux:
   ros__parameters:
     use_sim_time: false

@@ -102,7 +102,7 @@ Executables registered in `setup.py`:
 | `costmap_reconfig_server` | Changes costmap values on the running Nav2 (`inflation_radius` no smaller than the costmap's footprint radius); `reset_costmap_config` puts the replaced values back |
 | `following_server` | Runs `behavior_trees/follow_point.xml` to follow a tracked person (see "Following a person" below) |
 | `cloud_self_filter` | Republishes the head camera's cloud without the robot itself (points inside the published footprint + `margin_m`) on `/skuba/nav/filtered_points`, for the costmaps' depth layers (`params/follower_param.yaml`) |
-| `emergency_stop` | Publishes the twist_mux e-stop lock (`e_stop`), and the same latched state on `/skuba/nav/e_stop` for skuba-state |
+| `emergency_stop` | Reads the e-stop pin from `/sensors/core` and publishes the live level (True pressed, False released) on the twist_mux lock (`e_stop`) and on `/skuba/nav/e_stop` for skuba-state; sent at once on a change and every 0.1 s as a heartbeat; nothing while `/sensors/core` is silent |
 | `filter_lidar` | Republishes `/scan` as `/scan_filtered` with an optional angular mask |
 | `map_save_cli` | Interactive prompt to serialize the SLAM Toolbox map to disk |
 | `map_editor` | Web map editor (`ros2 run skuba_navigation map_editor`, then http://<robot>:8090): paint free/wall/unknown, clean specks/holes, place named locations into the selected map's `<map>.poses.yaml` |
