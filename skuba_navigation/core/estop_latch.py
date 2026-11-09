@@ -6,6 +6,15 @@ e-stop semantics in emergency_stop.py: never auto-release.
 """
 
 
+# kobuki_ros_interfaces/SensorState.DIGITAL_INPUT0: the e-stop pin.
+DIGITAL_INPUT0 = 1
+
+
+def is_pressed(digital_input: int) -> bool:
+    """Return True if the e-stop pin is set in a SensorState.digital_input."""
+    return bool(digital_input & DIGITAL_INPUT0)
+
+
 class EstopLatch:
     def __init__(self):
         self._active = False

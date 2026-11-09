@@ -4,7 +4,7 @@ Unit tests for the e-stop latch state machine.
 Pure state, no rclpy - so it runs without a robot or a running graph.
 """
 
-from skuba_navigation.core.estop_latch import EstopLatch
+from skuba_navigation.core.estop_latch import DIGITAL_INPUT0, EstopLatch, is_pressed
 
 
 def test_starts_inactive():
@@ -25,3 +25,10 @@ def test_trigger_is_idempotent_once_latched():
     assert latch.trigger() is False
     assert latch.trigger() is False
     assert latch.is_active is True
+
+
+def test_is_pressed_reads_only_pin_0_of_the_sensor_word():
+    assert is_pressed(DIGITAL_INPUT0) is True
+    assert is_pressed(0) is False
+    assert is_pressed(0b1110) is False
+    assert is_pressed(0b1111) is True

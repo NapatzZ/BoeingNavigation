@@ -9,10 +9,11 @@ from rclpy.qos import (
     QoSReliabilityPolicy,
     QoSHistoryPolicy,
     QoSDurabilityPolicy,
+    qos_profile_sensor_data,
 )
 from std_msgs.msg import Bool
-from kobuki_ros_interfaces.msg import DigitalInputEvent
-from ..core.estop_latch import EstopLatch
+from kobuki_ros_interfaces.msg import DigitalInputEvent, SensorState
+from ..core.estop_latch import EstopLatch, is_pressed
 
 
 class EmergencyStopNode(Node):
@@ -34,6 +35,11 @@ class EmergencyStopNode(Node):
     The same latched state also goes out on /skuba/nav/e_stop, for everything
     that is not twist_mux: skuba-state stops its tree when it reads True.
 
+    The first value is the real button state, read once from /sensors/core
+    (digital_input bit 0). The events only fire on a change, so a button already
+    held when this node starts would otherwise be missed. Nothing is published
+    until that first message arrives.
+
     Parameters
     ----------
     lock_topic: str - twist_mux lock topic to raise. Default 'e_stop'.
@@ -51,6 +57,7 @@ class EmergencyStopNode(Node):
 
         self._latch = EstopLatch()
         self._shutdown = False
+        self._seed_sub = None
 
         # Latched (transient-local) so twist_mux gets the current lock state even
         # if it subscribes after we start publishing.
@@ -69,15 +76,16 @@ class EmergencyStopNode(Node):
 
         self._lock_pub = self.create_publisher(Bool, lock_topic, lock_qos)
         self._state_pub = self.create_publisher(Bool, state_topic, lock_qos)
-        # Publish the initial "unlocked" state so twist_mux does not treat a
-        # missing message as a lock.
-        self._publish(False)
 
         self._sub = self.create_subscription(
             DigitalInputEvent,
             "/events/digital_input",
             self._digital_input_cb,
             input_qos,
+        )
+
+        self._seed_sub = self.create_subscription(
+            SensorState, "/sensors/core", self._seed_cb, qos_profile_sensor_data
         )
 
         # Dedicated thread: keeps the lock raised once latched.
@@ -90,8 +98,25 @@ class EmergencyStopNode(Node):
         )
 
     # ------------------------------------------------------------------
+    def _seed_cb(self, msg: SensorState) -> None:
+        """Set the first value from the real button state, then stop listening."""
+        if self._seed_sub is None:
+            return  # a message that was already queued
+        sub, self._seed_sub = self._seed_sub, None
+        self.destroy_subscription(sub)
+        if is_pressed(msg.digital_input):
+            self._latch_pressed()
+        elif not self._latch.is_active:  # an event may have latched first
+            self._publish(False)
+
+    # ------------------------------------------------------------------
     def _digital_input_cb(self, msg: DigitalInputEvent) -> None:
-        if msg.values[0] and self._latch.trigger():
+        if msg.values[0]:
+            self._latch_pressed()
+
+    # ------------------------------------------------------------------
+    def _latch_pressed(self) -> None:
+        if self._latch.trigger():
             self._publish(True)  # raise lock immediately
             self.get_logger().warn(
                 "[EmergencyStop] *** E-STOP LATCHED *** twist_mux lock raised."
