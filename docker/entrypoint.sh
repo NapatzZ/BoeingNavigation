@@ -2,6 +2,16 @@
 
 source /opt/ros/humble/setup.bash
 
+# skuba_interfaces is built once for the whole robot by skuba_robot's
+# `interfaces` service and mounted here read-only: source it as an underlay and
+# do not build a second copy (docs/DOCKER.md). Standalone there is no mount, and
+# colcon builds skuba_interfaces from the mounted source as before.
+SKIP_IFACES=()
+if [ -f /opt/skuba_interfaces/install/setup.bash ]; then
+  source /opt/skuba_interfaces/install/setup.bash
+  SKIP_IFACES=(--packages-skip skuba_interfaces)
+fi
+
 # Zenoh router -- the image's middleware is rmw_zenoh (RMW_IMPLEMENTATION), and
 # rmw_zenoh nodes meet through one Zenoh router on tcp/localhost:7447 (host
 # network: one router for the whole robot). Every SKUBA container runs this
@@ -47,20 +57,20 @@ fi
 
 touch /tmp/.build_complete
 
-if [ -f /root/skuba_ws/install/setup.bash ]; then
-  source /root/skuba_ws/install/setup.bash
+if [ -f /ros_ws/install/setup.bash ]; then
+  source /ros_ws/install/setup.bash
 fi
 
 
 # Build the mounted workspace so `ros2 launch` can find the packages.
 # Set SKIP_BUILD=1 to bypass (fast restarts when nothing changed).
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
-  ( cd /root/skuba_ws && colcon build ) \
+  ( cd /ros_ws && colcon build "${SKIP_IFACES[@]}" ) \
     || echo "[entrypoint] colcon build reported errors; continuing anyway."
 fi
 
-if [ -f /root/skuba_ws/install/setup.bash ]; then
-  source /root/skuba_ws/install/setup.bash
+if [ -f /ros_ws/install/setup.bash ]; then
+  source /ros_ws/install/setup.bash
 fi
 
 # Foxglove Bridge -- the robot's one monitoring endpoint: Foxglove Studio on

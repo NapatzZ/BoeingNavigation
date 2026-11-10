@@ -205,7 +205,7 @@ Runs `registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-tea
 
 Host source folders are bind-mounted with paths relative to the compose file, so
 the workspace can live anywhere. `build/` and `install/` are named volumes
-(`nav_build`, `nav_install`) that persist across restarts — use
+(`nav_ws_build`, `nav_ws_install`) that persist across restarts — use
 `docker compose down -v` to force a clean rebuild.
 
 The container does **not** build on startup. `entrypoint.sh` only sources
@@ -213,7 +213,7 @@ The container does **not** build on startup. `entrypoint.sh` only sources
 Build it yourself once you are inside:
 
 ```bash
-cd /root/skuba_ws
+cd /ros_ws
 colcon build --packages-select skuba_navigation
 source install/setup.bash
 ```

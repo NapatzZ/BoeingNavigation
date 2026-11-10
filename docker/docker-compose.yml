@@ -1,25 +1,3 @@
-# Equivalent of:
-#   docker pull registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
-#   docker run -it --name skuba_nav --network host --privileged \
-#     -v /dev:/dev \
-#     -v .../skuba_navigation:/root/skuba_ws/src/skuba_navigation \
-#     -v .../skuba_bringup:/root/skuba_ws/src/skuba_bringup \
-#     -v .../skuba_interfaces:/root/skuba_ws/src/skuba_interfaces \
-#     -v .../skuba_description:/root/skuba_ws/src/skuba_description \
-#     registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
-#
-# Usage (run from this folder, which sits in skuba_ws/src next to the other pkgs):
-#   docker compose up
-#
-# First startup: entrypoint builds all mounted packages automatically (takes a few minutes).
-# Subsequent startups: only changed packages rebuild — fast because build/ and install/
-# are stored in named volumes (nav_build / nav_install) that persist across restarts.
-# To force a clean rebuild: docker compose down -v
-#
-# The host source folders are live-mounted with paths RELATIVE to this file, so
-# the workspace can live anywhere — no hard-coded /home/skuba path needed.
-# Other packages via PKG_* (skuba_robot sets them; default: the checkout next
-# to this one).
 services:
   nav:
     image: registry.gitlab.com/robotcitizens/skuba/robocup-opl/skuba-ahr/software-team/skuba_navigation:latest
@@ -28,29 +6,14 @@ services:
       dockerfile: dockerfile
     container_name: skuba-nav
     healthcheck:
-      # Container readiness, NOT task readiness: "the workspace is built and the
-      # ROS layer in this container answers", i.e. it can accept a launch.
-      # Whether the RIGHT nodes are actually up is the ROS layer's job, driven by
-      # system_manifest.yaml. The readiness gate checks the two independently,
-      # because neither catches the other's failure: a container can pass this
-      # check with a crashed node inside it, and a node can linger on the graph
-      # after its container is gone.
-      #
-      # `ros2 node list` exits 0 on an empty graph -- deliberate. This is asking
-      # whether the CLI and rmw work here, not what is running.
-      #
-      # Must run under bash: CMD-SHELL uses /bin/sh (dash), which has no `source`.
       test:
         - CMD
         - bash
         - -lc
-        - test -f /root/skuba_ws/install/setup.bash && source /opt/ros/humble/setup.bash && timeout 5 ros2 node list > /dev/null 2>&1
+        - test -f /ros_ws/install/setup.bash && source /opt/ros/humble/setup.bash && timeout 5 ros2 node list > /dev/null 2>&1
       interval: 10s
       timeout: 10s
       retries: 3
-      # First boot colcon-builds every mounted package, which takes minutes. Until
-      # start_period elapses a failing check reports `starting`, not `unhealthy`,
-      # so a slow build shows up as "still starting" instead of a phantom fault.
       start_period: 600s
     privileged: true
     network_mode: host
@@ -58,44 +21,35 @@ services:
     init: true
     environment:
       - ROS_DOMAIN_ID=67
-      - FOXGLOVE=${FOXGLOVE:-0}  # foxglove_bridge off for now; FOXGLOVE=1 docker compose up -d to turn on
+      - FOXGLOVE=${FOXGLOVE:-0} 
       - DISPLAY=:1
       - XAUTHORITY=
     devices:
       - /dev/bus/usb
     volumes:
       - /dev:/dev
-      - ../.:/root/skuba_ws/src/skuba_navigation
-      - ${PKG_BRINGUP:-../../skuba_bringup}:/root/skuba_ws/src/skuba_bringup
-      - ${PKG_INTERFACES:-../../skuba_interfaces}:/root/skuba_ws/src/skuba_interfaces
-      - ${PKG_DESCRIPTION:-../../skuba_description}:/root/skuba_ws/src/skuba_description
-      # bringup's drivers/ submodules belong to the hardware container; hide
-      # them so they do not clash with the drivers the nav image builds. Only
-      # the lidar's comes in, for launch_bringup:=true on its own.
+      - ../.:/ros_ws/src/skuba_navigation
+      - ${PKG_BRINGUP:-../../skuba_bringup}:/ros_ws/src/skuba_bringup
+      - ${PKG_INTERFACES:-../../skuba_interfaces}:/ros_ws/src/skuba_interfaces
+      - ${PKG_DESCRIPTION:-../../skuba_description}:/ros_ws/src/skuba_description
       - type: tmpfs
-        target: /root/skuba_ws/src/skuba_bringup/drivers
-      - ${PKG_BRINGUP:-../../skuba_bringup}/drivers/sllidar_ros2:/root/skuba_ws/src/sllidar_ros2
-      - nav_build:/root/skuba_ws/build
-      - nav_install:/root/skuba_ws/install
+        target: /ros_ws/src/skuba_bringup/drivers
+      - ${PKG_BRINGUP:-../../skuba_bringup}/drivers/sllidar_ros2:/ros_ws/src/sllidar_ros2
+      - nav_ws_build:/ros_ws/build
+      - nav_ws_install:/ros_ws/install
+      - ${SKUBA_LOG_DIR:-${HOME}/skuba/logs}/nav:/root/.ros/log
       - ./entrypoint.sh:/entrypoint_override.sh:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     entrypoint: ["/bin/bash", "/entrypoint_override.sh"]
-    # The container idles after entrypoint builds the workspace - it does not
-    # auto-launch a stack (skuba_robot's task says what runs). By hand, inside:
-    #   ros2 launch skuba_navigation cheesecake_nav.launch.py map:=<path>
-    #   ros2 launch skuba_navigation cheesecake_resturant.launch.py
-    # Mapping (nav2_slam_bringup_launch.py) is likewise a separate, manual,
-    # driven session (drive the robot, save when done):
-    #   ros2 launch skuba_navigation nav2_slam_bringup_launch.py
-    # or base + mapping in one go:
-    #   ros2 launch skuba_navigation cheesecake_slam.launch.py
     command: ["sleep", "infinity"]
     deploy:
       resources:
         limits:
           memory: 12G
-    stdin_open: true   # docker run -i
-    tty: true          # docker run -t
+    stdin_open: true
+    tty: true
 volumes:
-  nav_build:
-  nav_install:
+  nav_ws_build:
+    labels: {skuba.module: nav}
+  nav_ws_install:
+    labels: {skuba.module: nav}
