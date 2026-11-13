@@ -69,12 +69,6 @@ RUN /bin/bash -c "\
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc && \
     echo "source /ros_ws/install/setup.bash" >> ~/.bashrc
 
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-rmw-zenoh-cpp \
-    && rm -rf /var/lib/apt/lists/*
-ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
-
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

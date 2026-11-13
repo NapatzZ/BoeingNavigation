@@ -25,3 +25,8 @@ Then unplug and replug the Kobuki and the lidar if the symlinks don't appear.
 ```bash
 ls -l /dev/kobuki /dev/rplidar
 ```
+
+## Exercises
+
+SLAM and Nav2 training exercises (bring-up, mapping, navigation, tuning, SLAM + Nav2 together)
+are in [`boeing_navigation/exercises/`](boeing_navigation/exercises/README.md).
