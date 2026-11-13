@@ -1,0 +1,5 @@
+{
+  "urdf-visualizer.packages": {
+    "boeing_description": "${workspaceFolder}/boeing_description"
+  }
+}
