@@ -389,10 +389,11 @@ local_costmap:
 
         # --- Depth camera source (3D obstacles: table legs, chair rungs) ---
         # Remove this block if no depth camera is present.
-        # Change topic to /camera/filtered_points if YOLOv8 person filter is active.
         point_cloud_sensor:
           data_type: PointCloud2
-          topic: /camera/camera/depth/color/points
+          # The head camera without the robot (cloud_self_filter): the raw cloud
+          # marks the arm and the carried item, and the controller stops.
+          topic: /skuba/nav/filtered_points
           marking: true
           clearing: true
           obstacle_range: 1.25
