@@ -11,6 +11,7 @@ each one builds on the previous one.
 | 2 | [Navigating on a saved map](02_navigation_saved_map.md) | Localisation (AMCL), sending goals | 1 h |
 | 3 | [Tuning after mapping](03_tuning.md) | Costmaps, planner, controller, AMCL tuning | 2-3 h |
 | 4 | [Online SLAM + Nav2 together](04_slam_and_nav_together.md) | Navigate while the map is still being built | 1-2 h |
+| 5 | [Named waypoints](05_waypoints.md) | Save places and send goals by name, routes and patrol | 1-2 h |
 
 ## Packages used
 
@@ -27,7 +28,8 @@ boeing_bringup/config/kobuki_node.yaml      # base parameters
 boeing_bringup/config/sllidar_a3.yaml       # lidar parameters
 boeing_navigation/config/slam_toolbox.yaml  # SLAM parameters
 boeing_navigation/config/nav2_params.yaml   # Nav2 parameters (exercise 3)
-boeing_navigation/maps/                     # your saved maps
+boeing_navigation/maps/                     # your saved maps and waypoints
+boeing_navigation/scripts/waypoint_manager.py  # exercise 5
 ```
 
 ## Before you start
