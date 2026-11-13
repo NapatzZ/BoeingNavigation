@@ -5,7 +5,7 @@
 The rules in `rules.d/` create fixed device names (`/dev/kobuki`, `/dev/rplidar`).
 They must be installed on the **host** (the robot's computer), not inside the container.
 
-### Install
+### Install (configure usb (lidar, kubuki))
 
 ```bash
 sudo cp rules.d/*.rules /etc/udev/rules.d/
