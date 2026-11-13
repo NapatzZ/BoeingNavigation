@@ -49,12 +49,9 @@ RUN git clone https://github.com/NapatzZ/skuba-kobuki-driver.git
 
 RUN git clone https://github.com/Slamtec/sllidar_ros2.git
 
-RUN mkdir -p \
-    boeing_navigation \
-    boeing_bringup \ 
-    boeing_description
-
 COPY boeing_description /ros_ws/src/boeing_description
+COPY boeing_bringup /ros_ws/src/boeing_bringup
+COPY boeing_navigation /ros_ws/src/boeing_navigation
 
 WORKDIR /ros_ws
 RUN apt-get update \

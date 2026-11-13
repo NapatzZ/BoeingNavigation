@@ -1,0 +1,10 @@
+# Parameters for sllidar_node (RPLIDAR A3).
+sllidar_node:
+  ros__parameters:
+    channel_type: serial
+    serial_port: /dev/rplidar     # symlink created by rules.d/rplidar.rules
+    serial_baudrate: 256000       # A3
+    frame_id: laser               # level frame defined in boeing.urdf
+    inverted: false
+    angle_compensate: true
+    scan_mode: Sensitivity

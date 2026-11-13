@@ -100,4 +100,19 @@
       effort="10"
       velocity="10" />
   </joint>
+  <!-- Level scan frame for the RPLIDAR. lidar_link is the SolidWorks mesh frame
+       (rolled 90 deg), so laser undoes that roll: base_link -> laser has no rotation. -->
+  <link
+    name="laser" />
+  <joint
+    name="laser_joint"
+    type="fixed">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="lidar_link" />
+    <child
+      link="laser" />
+  </joint>
 </robot>
