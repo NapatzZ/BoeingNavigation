@@ -11,11 +11,11 @@ frame exists from the start, with no initial pose to send.
 Everything else is cheesecake_nav.launch.py, so its arguments (sim,
 use_rviz, launch_bringup, ...) work here too:
 
-    ros2 launch skuba_navigation cheesecake_resturant.launch.py
+    ros2 launch skuba_navigation cheesecake_restaurant.launch.py
 
 In skuba_robot the hardware container is already up:
 
-    ros2 launch skuba_navigation cheesecake_resturant.launch.py \
+    ros2 launch skuba_navigation cheesecake_restaurant.launch.py \
         launch_bringup:=false
 """
 

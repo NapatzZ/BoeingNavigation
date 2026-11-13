@@ -35,7 +35,7 @@ All three launches open RViz with this repo's `rviz/cheesecake_nav.rviz`
 off by default: with it on, RViz deadlocked inside tf2 within a second of a
 2D Pose Estimate. Tick it on when you need the scan.
 
-### 2. `cheesecake_resturant.launch.py` — white map, no AMCL
+### 2. `cheesecake_restaurant.launch.py` — white map, no AMCL
 
 For the restaurant task, as `skuba_cheesecake_navigation` ran it. The restaurant
 map is plain white (free floor, no walls), so AMCL has nothing to match. This
@@ -45,8 +45,8 @@ odometry, and the `map` frame is there from the start with no initial pose.
 All of `cheesecake_nav.launch.py`'s arguments work here.
 
 ```bash
-ros2 launch skuba_navigation cheesecake_resturant.launch.py
-ros2 launch skuba_navigation cheesecake_resturant.launch.py launch_bringup:=false  # skuba_robot
+ros2 launch skuba_navigation cheesecake_restaurant.launch.py
+ros2 launch skuba_navigation cheesecake_restaurant.launch.py launch_bringup:=false  # skuba_robot
 ```
 
 | Argument | Default |
