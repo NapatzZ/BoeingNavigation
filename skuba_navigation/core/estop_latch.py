@@ -5,7 +5,6 @@ Triggers once, then stays latched permanently — matches the physical
 e-stop semantics in emergency_stop.py: never auto-release.
 """
 
-
 # kobuki_ros_interfaces/SensorState.DIGITAL_INPUT0: the e-stop pin.
 DIGITAL_INPUT0 = 1
 

@@ -81,9 +81,7 @@ class FollowingServer(Node):
         self._send_in_progress = False  # send_goal_async awaiting acceptance
         # True: a stale pose still (re)seeds the goal -> drive to where the
         # person was last seen instead of waiting for re-acquisition.
-        self._keep_last = bool(
-            self.declare_parameter("keep_last_pose", False).value
-        )
+        self._keep_last = bool(self.declare_parameter("keep_last_pose", False).value)
 
         # ── Behavior-tree path ───────────────────────────────────────────── #
         self._bt_path = os.path.join(

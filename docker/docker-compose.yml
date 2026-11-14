@@ -21,7 +21,7 @@ services:
     init: true
     environment:
       - ROS_DOMAIN_ID=67
-      - FOXGLOVE=${FOXGLOVE:-0} 
+      - FOXGLOVE=${FOXGLOVE:-0}
       - DISPLAY=:1
       - XAUTHORITY=
     devices:

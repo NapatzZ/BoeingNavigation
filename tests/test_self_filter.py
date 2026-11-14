@@ -20,12 +20,14 @@ def test_widen_moves_every_vertex_out():
 
 
 def test_the_carried_bag_goes_and_a_shoe_ahead_stays():
-    points = np.array([
-        [0.55, 0.05, 0.6],   # the bag in the hand
-        [0.62, -0.1, 0.4],   # its edge, just past the footprint (inside the margin)
-        [1.4, 0.0, 0.08],    # a shoe on the floor ahead
-        [0.0, 0.0, 1.2],     # the camera's own mount
-    ])
+    points = np.array(
+        [
+            [0.55, 0.05, 0.6],  # the bag in the hand
+            [0.62, -0.1, 0.4],  # its edge, just past the footprint (inside the margin)
+            [1.4, 0.0, 0.08],  # a shoe on the floor ahead
+            [0.0, 0.0, 1.2],  # the camera's own mount
+        ]
+    )
     keep = not_the_robot(points, FOOTPRINT, margin=0.12)
     assert keep.tolist() == [False, False, True, False]
 
