@@ -26,11 +26,13 @@ OUT_TOPIC = "/skuba/nav/filtered_points"
 
 def _matrix(q):
     x, y, z, w = q.x, q.y, q.z, q.w
-    return np.array([
-        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
-        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
-        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
-    ])
+    return np.array(
+        [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+        ]
+    )
 
 
 class CloudSelfFilter(Node):
@@ -50,7 +52,9 @@ class CloudSelfFilter(Node):
         self.create_subscription(
             PointCloud2, cloud_topic, self._on_cloud, qos_profile_sensor_data
         )
-        self._pub = self.create_publisher(PointCloud2, OUT_TOPIC, qos_profile_sensor_data)
+        self._pub = self.create_publisher(
+            PointCloud2, OUT_TOPIC, qos_profile_sensor_data
+        )
         self.get_logger().info(f"cloud_self_filter ready: {cloud_topic} -> {OUT_TOPIC}")
 
     def _to_base(self, frame):
@@ -72,7 +76,9 @@ class CloudSelfFilter(Node):
 
     def _on_cloud(self, msg):
         tf = self._to_base(msg.header.frame_id)
-        xyz = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
+        xyz = point_cloud2.read_points_numpy(
+            msg, field_names=("x", "y", "z"), skip_nans=True
+        )
         if tf is None or self._footprint is None or xyz.size == 0:
             # Nothing known of the robot yet: pass the cloud through.
             self._pub.publish(msg)

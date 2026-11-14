@@ -11,7 +11,7 @@ ros2 run skuba_navigation navigation_server --ros-args \
 ```
 
 Both task launch files (`cheesecake_nav.launch.py`,
-`cheesecake_resturant.launch.py`) start it with that params file.
+`cheesecake_restaurant.launch.py`) start it with that params file.
 
 - [What changed (migration)](#what-changed-migration)
 - [Actions](#actions)
