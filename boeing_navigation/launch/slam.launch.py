@@ -19,13 +19,6 @@ def generate_launch_description():
        arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base'],
    )
 
-   static_tf_base_base_link = Node(
-       package='tf2_ros',
-       executable='static_transform_publisher',
-       name='base_to_base_link_tf',
-       arguments=['0', '0', '0', '0', '0', '0', 'base', 'base_link'],
-   )
-
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument(
