@@ -8,6 +8,7 @@ slam_toolbox:
     ceres_trust_strategy: LEVENBERG_MARQUARDT
     ceres_dogleg_type: TRADITIONAL_DOGLEG
     ceres_loss_function: None
+    tf_message_filter_queue_size: 100
 
     # ROS params
     odom_frame: odom
