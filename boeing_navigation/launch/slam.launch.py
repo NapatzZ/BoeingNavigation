@@ -11,12 +11,19 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg = get_package_share_directory('boeing_navigation')
     slam_toolbox = get_package_share_directory('slam_toolbox')
-
-   static_tf_odom_base = Node(
+  
+    static_tf_odom_base = Node(
        package='tf2_ros',
        executable='static_transform_publisher',
        name='odom_to_base_tf',
        arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base'],
+   )
+
+   static_tf_base_base_link = Node(
+       package='tf2_ros',
+       executable='static_transform_publisher',
+       name='base_to_base_link_tf',
+       arguments=['0', '0', '0', '0', '0', '0', 'base', 'base_link'],
    )
 
     return LaunchDescription([
