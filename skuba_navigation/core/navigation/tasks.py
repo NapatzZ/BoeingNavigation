@@ -204,9 +204,8 @@ def rotate_in_place(
         tolerance_deg if tolerance_deg > 0.0 else cfg.rotate_default_tolerance_deg
     )
     achieved = math.degrees(
-        ctx.motion.rotate_by(
+        ctx.motion.spin(
             math.radians(angle_deg),
-            math.radians(tolerance_deg),
             ctx.token,
             ctx.deadline(timeout, cfg.rotate_default_timeout),
             on_progress=lambda error: ctx.feedback(

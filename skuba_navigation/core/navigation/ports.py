@@ -64,6 +64,15 @@ class PoseSource(Protocol):
         """(x, y) of `frame` in the map frame. Raises TaskFailure(TF_LOOKUP_FAILED)."""
 
 
+class OdomSource(Protocol):
+    def yaw(self, timeout: float) -> float:
+        """
+        Robot yaw from the latest fresh odometry message (odom frame).
+
+        Waits up to `timeout` s for one. Raises TaskFailure(TF_LOOKUP_FAILED).
+        """
+
+
 class BaseCommander(Protocol):
     def command(self, linear: float, angular: float) -> None:
         """Send one velocity command to the base."""

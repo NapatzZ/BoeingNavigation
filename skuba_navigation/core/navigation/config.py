@@ -40,6 +40,19 @@ class MotionConfig:
     rotate_default_timeout: float = 30.0  # s
     rotate_settle_time: float = 0.5  # s to let inertia settle before verifying
 
+    # RotateInPlace: the P-Learn motion_controller.rotate loop, on /odom.
+    # The face-the-target turns of GoToFrame / NudgeToFrame keep rotate_*.
+    spin_kp: float = 3.0
+    spin_kd: float = 0.3
+    spin_max_speed: float = 1.0  # rad/s
+    spin_min_speed: float = 0.18  # rad/s
+    spin_creep_speed: float = 0.10  # rad/s
+    spin_decel_zone_deg: float = 10.0  # inside this, command min speed
+    spin_creep_zone_deg: float = 2.0  # inside this, command creep speed
+    spin_stop_tolerance_deg: float = 2.0  # loop exit; goal tolerance only verifies
+    spin_rate: float = 50.0  # Hz
+    spin_settle_time: float = 0.5  # s before the final odom reading
+
     # Straight-line driving.
     drive_speed: float = 0.2  # m/s
     drive_slow_zone: float = 0.1  # m before the target where we slow down

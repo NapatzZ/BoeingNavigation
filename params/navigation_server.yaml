@@ -5,6 +5,7 @@ navigation_server:
     map_frame: map
     robot_frame: base_link
     cmd_vel_topic: cmd_vel_nav_manual       # manual twist_mux lane (params/twist_mux.yaml)
+    odom_topic: odom                        # base driver odometry; RotateInPlace turns on it
     locations_file: ''                      # empty = the running map's <map>.poses.yaml; set = one file for every map
     map: ''                                 # empty = ask map_server which map is running; set = that map yaml
     preempt_handover_timeout: 5.0           # s a new goal waits for the old one to stop
@@ -37,6 +38,17 @@ navigation_server:
       rotate_default_tolerance_deg: 10.0
       rotate_default_timeout: 30.0      # s
       rotate_settle_time: 0.5           # s to let inertia settle before verifying
+      # RotateInPlace: the P-Learn rotate loop on odom_topic (face-the-target turns keep rotate_*)
+      spin_kp: 3.0
+      spin_kd: 0.3
+      spin_max_speed: 1.0               # rad/s
+      spin_min_speed: 0.18              # rad/s
+      spin_creep_speed: 0.10            # rad/s
+      spin_decel_zone_deg: 10.0         # inside this, command min speed
+      spin_creep_zone_deg: 2.0          # inside this, command creep speed
+      spin_stop_tolerance_deg: 2.0      # loop exit; goal tolerance only verifies
+      spin_rate: 50.0                   # Hz
+      spin_settle_time: 0.5             # s before the final odom reading
       drive_speed: 0.2                  # m/s
       drive_slow_zone: 0.1              # m before the target where we slow down
       drive_slow_factor: 0.3
