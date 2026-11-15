@@ -7,7 +7,11 @@ import pytest
 from navigation_fakes import Harness
 from skuba_navigation.core.navigation.clock import Deadline
 from skuba_navigation.core.navigation.config import MotionConfig
-from skuba_navigation.core.navigation.motion import rotation_command, YawTracker
+from skuba_navigation.core.navigation.motion import (
+    rotation_command,
+    spin_command,
+    YawTracker,
+)
 from skuba_navigation.core.navigation.types import ErrorCode, Pose2D, TaskFailure
 
 CFG = MotionConfig()
@@ -39,6 +43,53 @@ def test_rotation_damping_is_symmetric():
     error, rate = math.radians(20), -0.5
     mirrored = -rotation_command(-error, rate, CFG)
     assert rotation_command(error, rate, CFG) == pytest.approx(mirrored)
+
+
+def test_spin_command_zones():
+    deg = math.radians
+    assert spin_command(deg(1.0), 0.0, CFG) == pytest.approx(CFG.spin_creep_speed)
+    assert spin_command(deg(5.0), 0.0, CFG) == pytest.approx(CFG.spin_min_speed)
+    assert spin_command(deg(90.0), 0.0, CFG) == pytest.approx(CFG.spin_max_speed)
+
+
+def test_spin_command_d_term_adds_speed_while_closing_in():
+    # P-Learn's sign: remaining shrinking (rate < 0) pushes the speed up.
+    remaining = math.radians(12.0)
+    assert spin_command(remaining, -0.5, CFG) > spin_command(remaining, 0.0, CFG)
+
+
+@pytest.mark.parametrize("angle_deg", [90.0, -90.0, 180.0, -180.0, 270.0])
+def test_spin_reaches_the_angle(angle_deg):
+    h = Harness()
+    achieved = h.motion.spin(math.radians(angle_deg), h.token, deadline(h))
+    assert math.degrees(achieved) == pytest.approx(angle_deg, abs=2.5)
+    assert not h.robot.moving and h.robot.stops >= 1
+
+
+def test_spin_turns_the_commanded_way_past_180():
+    h = Harness()
+    turns = []
+    h.clock.listeners.append(lambda dt: turns.append(h.robot.angular))
+    h.motion.spin(math.radians(270), h.token, deadline(h))
+    assert min(turns) >= 0.0  # never took the 90 deg short cut to the right
+
+
+def test_spin_fails_and_stops_when_odometry_goes_quiet():
+    h = Harness()
+    h.clock.listeners.append(lambda dt: setattr(h.robot, "tf_down", h.clock.t > 0.5))
+    with pytest.raises(TaskFailure) as failure:
+        h.motion.spin(math.radians(180), h.token, deadline(h))
+    assert failure.value.code == ErrorCode.TF_LOOKUP_FAILED
+    assert not h.robot.moving
+
+
+def test_cancel_stops_a_spin():
+    h = Harness()
+    h.clock.listeners.append(lambda dt: h.clock.t > 0.5 and h.token.cancel())
+    with pytest.raises(TaskFailure) as failure:
+        h.motion.spin(math.radians(180), h.token, deadline(h))
+    assert failure.value.code == ErrorCode.CANCELED
+    assert not h.robot.moving
 
 
 def test_yaw_tracker_accumulates_across_wrap():

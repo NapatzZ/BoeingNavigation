@@ -56,6 +56,12 @@ class SimRobot:
             raise TaskFailure(ErrorCode.TF_LOOKUP_FAILED, "tf down")
         return self.pose
 
+    # OdomSource
+    def yaw(self, timeout):
+        if self.tf_down:
+            raise TaskFailure(ErrorCode.TF_LOOKUP_FAILED, "odom down")
+        return self.pose.yaw
+
     def frame_position(self, frame, timeout=None):
         if frame not in self.frames:
             raise TaskFailure(ErrorCode.TF_LOOKUP_FAILED, f"no frame {frame}")
@@ -147,7 +153,9 @@ class Harness:
         self.locations = LocationStore(path)
         self.nav_config = nav_config
         self.motion_config = motion_config
-        self.motion = BaseMotion(self.robot, self.robot, motion_config, self.clock)
+        self.motion = BaseMotion(
+            self.robot, self.robot, motion_config, self.clock, self.robot
+        )
 
     def context(self):
         return TaskContext(

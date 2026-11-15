@@ -115,6 +115,13 @@ def test_rotate_in_place_default_tolerance():
     assert any("remaining_angle_deg" in f for f in h.feedback)
 
 
+def test_rotate_in_place_runs_on_to_the_stop_tolerance():
+    # Default tolerance is 10 deg; the P-Learn loop still stops at 2 deg.
+    h = Harness()
+    result = tasks.rotate_in_place(h.context(), 90.0, 0.0, 0.0)
+    assert result.fields["achieved_angle_deg"] == pytest.approx(90.0, abs=2.5)
+
+
 def test_drive_straight_backward():
     h = Harness()
     result = tasks.drive_straight(h.context(), -0.4, 0.0, 0.0)

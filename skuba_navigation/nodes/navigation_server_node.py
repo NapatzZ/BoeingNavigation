@@ -46,6 +46,7 @@ from std_srvs.srv import Trigger
 from ..adapters.cmd_vel_base import CmdVelBase
 from ..adapters.conversions import fill, pose2d_from_pose
 from ..adapters.nav2_client import Nav2Client
+from ..adapters.odom_source import OdomSource
 from ..adapters.parameters import declare_dataclass
 from ..adapters.running_map import RunningMap
 from ..adapters.tf_pose_source import TfPoseSource
@@ -111,8 +112,14 @@ class NavigationServer(Node):
             self._param("cmd_vel_topic", "cmd_vel_nav_manual"),
             self._motion_config.stop_repeats,
         )
+        odom = OdomSource(
+            self,
+            self._param("odom_topic", "odom"),
+            self._motion_config.tf_grace,
+            clients_group,
+        )
         self._motion = BaseMotion(
-            self._poses, self._base, self._motion_config, self._core_clock
+            self._poses, self._base, self._motion_config, self._core_clock, odom
         )
         locations_file = self._param("locations_file", "")
         map_yaml = self._param("map", "")

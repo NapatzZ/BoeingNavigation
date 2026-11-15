@@ -138,6 +138,11 @@ Feedback: `progress` (phases go PLANNING → NAVIGATING → ALIGNING → VERIFYI
 
 Goal: `angle_deg` (relative, + = CCW, any magnitude), `tolerance_deg` (`<= 0` =
 `motion.rotate_default_tolerance_deg`, 10°), `timeout`.
+Runs the P-Learn `motion_controller.rotate` loop on `odom_topic` (not map TF):
+`motion.spin_*` (max 1.0 rad/s, min 0.18 inside 10°, creep 0.10 inside 2°),
+stops at `motion.spin_stop_tolerance_deg` (2°); `tolerance_deg` only decides
+success. It fails with `TF_LOOKUP_FAILED` if odometry is quiet for `tf_grace`.
+The face-the-target turns of GoToFrame / NudgeToFrame keep `rotate_*` on TF.
 Result: `error`, `achieved_angle_deg`, `elapsed`.
 Feedback: `remaining_angle_deg`, `elapsed`.
 

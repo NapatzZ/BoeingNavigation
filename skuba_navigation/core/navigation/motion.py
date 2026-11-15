@@ -17,7 +17,7 @@ from ..geometry_utils import normalize_angle
 from .cancellation import CancelToken
 from .clock import Clock, Deadline
 from .config import MotionConfig
-from .ports import BaseCommander, PoseSource
+from .ports import BaseCommander, OdomSource, PoseSource
 from .types import ErrorCode, Pose2D, TaskFailure
 
 ProgressCallback = Optional[Callable[[float], None]]
@@ -40,6 +40,23 @@ def rotation_command(error: float, error_rate: float, config: MotionConfig) -> f
         magnitude = config.rotate_min_speed
     magnitude = min(max(magnitude, config.rotate_min_speed), config.rotate_max_speed)
     return math.copysign(magnitude, error)
+
+
+def spin_command(
+    remaining: float, remaining_rate: float, config: MotionConfig
+) -> float:
+    """
+    Speed magnitude (rad/s) of the P-Learn rotate loop, `remaining` > 0 rad.
+
+    As in P-Learn the D term is `- remaining_rate * kd`: while closing in
+    (rate < 0) it adds speed; the decel zone, not the D term, does the braking.
+    """
+    if remaining < math.radians(config.spin_creep_zone_deg):
+        return config.spin_creep_speed
+    if remaining < math.radians(config.spin_decel_zone_deg):
+        return config.spin_min_speed
+    control = remaining * config.spin_kp - remaining_rate * config.spin_kd
+    return min(max(control, config.spin_min_speed), config.spin_max_speed)
 
 
 def drive_command(remaining: float, speed: float, config: MotionConfig) -> float:
@@ -66,9 +83,15 @@ class BaseMotion:
     """Rotate / drive-straight controllers on top of the ports."""
 
     def __init__(
-        self, poses: PoseSource, base: BaseCommander, config: MotionConfig, clock: Clock
+        self,
+        poses: PoseSource,
+        base: BaseCommander,
+        config: MotionConfig,
+        clock: Clock,
+        odom: Optional[OdomSource] = None,
     ):
         self._poses = poses
+        self._odom = odom
         self._base = base
         self._config = config
         self._clock = clock
@@ -103,6 +126,63 @@ class BaseMotion:
             self._base.stop()
         self._clock.sleep(cfg.rotate_settle_time, token)
         return tracker.update(self._poses.robot_pose(_SNAPSHOT_TIMEOUT).yaw)
+
+    def spin(
+        self,
+        angle: float,
+        token: CancelToken,
+        deadline: Deadline,
+        on_progress: ProgressCallback = None,
+    ) -> float:
+        """
+        Turn by `angle` rad on odometry: the P-Learn motion_controller.rotate loop.
+
+        Drives the commanded direction the whole way and counts only progress
+        that way, so angles past 180 deg are not short-cut. Returns the
+        measured rotation (start-to-end yaw, unwrapped next to `angle`).
+        """
+        cfg = self._config
+        if self._odom is None:
+            raise TaskFailure(ErrorCode.TF_LOOKUP_FAILED, "No odometry source.")
+        direction = 1.0 if angle >= 0.0 else -1.0
+        target = abs(angle)
+        stop = math.radians(cfg.spin_stop_tolerance_deg)
+        period = 1.0 / cfg.spin_rate
+        start_yaw = previous_yaw = self._odom.yaw(_SNAPSHOT_TIMEOUT)
+        turned = 0.0
+        previous_remaining, previous_time = target, self._clock.now()
+        last_seen = previous_time
+        try:
+            while True:
+                token.raise_if_cancelled()
+                if deadline.expired():
+                    raise TaskFailure(ErrorCode.TIMEOUT, "Motion timed out.")
+                try:
+                    yaw = self._odom.yaw(period)
+                    last_seen = self._clock.now()
+                except TaskFailure:
+                    if self._clock.now() - last_seen > cfg.tf_grace:
+                        raise
+                    self._clock.sleep(period, token)
+                    continue
+                turned += max(normalize_angle(yaw - previous_yaw) * direction, 0.0)
+                previous_yaw = yaw
+                remaining = target - turned
+                if on_progress:
+                    on_progress(direction * remaining)
+                if remaining < stop:
+                    break
+                now = self._clock.now()
+                dt = now - previous_time
+                rate = (remaining - previous_remaining) / dt if dt > 0.0 else 0.0
+                previous_remaining, previous_time = remaining, now
+                self._base.command(0.0, direction * spin_command(remaining, rate, cfg))
+                self._clock.sleep(period, token)
+        finally:
+            self._base.stop()
+        self._clock.sleep(cfg.spin_settle_time, token)
+        moved = normalize_angle(self._odom.yaw(_SNAPSHOT_TIMEOUT) - start_yaw)
+        return angle + normalize_angle(moved - angle)
 
     def turn_to_heading(
         self,
