@@ -118,7 +118,7 @@ drives, with `emergency_stop` holding the lock topic.
 ## navigation_server
 
 Every way of moving the base is an **action** under `/skuba/nav/`, so a caller
-(YASMIN today, py_trees_ros next) gets feedback, can cancel its own goal, and
+(skuba_state's py_trees_ros behaviour trees) gets feedback, can cancel its own goal, and
 learns why a goal failed. Only instant operations remain services.
 **Full reference: [docs/navigation_server.md](docs/navigation_server.md)**
 (goal / result / feedback fields, error codes, cancel, parameters, code
@@ -189,9 +189,94 @@ and bringing it back past small things on the floor (TEAM1-008), needed in sim:
 * global inflation 1.5 / 0.60 m (plans in the middle of 0.65 m doors) and RPP
   lookahead 0.45 m (a long carrot cuts the door corner).
 
-The person-following service `/skuba/cheesecake/nav/following` is **not** in
-this package — it is served by `skuba_vision`'s `follower` node (different
-namespace prefix, unaffected by this package's renames).
+Two different follow switches exist: `/skuba/nav/toggle_following` (this
+package's `following_server`, Nav2 follows `/skuba/nav/person_pose`) and
+`/skuba/vision/toggle_following` (skuba_vision `follower_node`, drives the
+twist_mux follow lane directly, no obstacle avoidance).
+[CONFIRM: which one the Carry My Luggage task uses now.]
+
+## Interfaces at a glance
+
+Taken from the node sources on `humble` (`skuba_navigation/nodes/`, `adapters/`). Types are `skuba_interfaces` unless marked otherwise.
+
+**Provides**: the actions and services listed in the two sections above. The topics are:
+
+| Topic | Type | Node |
+|---|---|---|
+| `/skuba/nav/e_stop` | `std_msgs/Bool` (latched) | `emergency_stop`: the button state at start, then `True` once pressed |
+| `e_stop` | `std_msgs/Bool` | `emergency_stop`: the twist_mux lock |
+| `/skuba/nav/door_status` | `std_msgs/Bool` | `door_detector`, only while it is switched on |
+| `/scan_filtered` | `sensor_msgs/LaserScan` | `filter_lidar` |
+| `/skuba/nav/filtered_points` | `sensor_msgs/PointCloud2` | `cloud_self_filter` |
+| `/cmd_vel` | `geometry_msgs/Twist` | `twist_mux` (joy, keyboard, follow, nav and `cmd_vel_nav_manual` in; e-stop lock) |
+
+**Consumes**
+
+| Endpoint | Used by | What for |
+|---|---|---|
+| `/navigate_to_pose` (nav2 action), `/compute_path_to_pose` | `navigation_server`, `following_server` | every Nav2-backed goal |
+| `local_costmap/clear_entirely_local_costmap`, `global_costmap/clear_entirely_global_costmap` | `navigation_server` | clearing costmaps before a goal and on retry |
+| `/events/digital_input`, `/sensors/core` (kobuki_ros_interfaces) | `emergency_stop` | the e-stop button |
+| `/scan`, `/odom`, TF `map → odom → base_footprint` | Nav2, `navigation_server` | localisation and pose checks |
+| `/camera/camera/depth/color/points` | `cloud_self_filter` | depth layers (STVL) |
+| `/skuba/nav/person_pose` | `following_server` (GoalUpdater) | published by skuba_vision `person_pose_node` |
+| `/local_costmap/...`, `/global_costmap/.../set_parameters` | `costmap_reconfig_server` | changing costmap values live |
+
+## How it works
+
+### One Nav2 goal (`go_to_pose`, `go_to_location`, `go_to_frame`)
+
+All six actions share one goal arbiter, so a new goal on any of them preempts the one that is running. The Nav2-backed actions go through one pipeline (`core/navigation/navigation_job.py`):
+
+1. **Validate at goal time.** Reject an empty or unknown location, an unknown side, NaN values or a zero quaternion.
+2. **Resolve the target.**
+   - `go_to_location` looks the name up in the running map's `<map>.poses.yaml`.
+   - `go_to_frame` computes a standoff pose next to the TF frame (`stop_distance`, `approach_side`).
+3. **Clear the costmaps** and, optionally, check that a path exists.
+4. **Send `NavigateToPose`** and relay feedback as `NavigationProgress` (at most 5 Hz; phase changes always go out).
+5. **On ABORTED**, clear the costmaps and retry, up to `navigation.max_retries` and within `timeout`.
+6. **`go_to_frame` only.**
+   - `ALIGNING`: turn in place to face the target.
+   - `VERIFYING`: check the final pose. This check decides the outcome: if Nav2 gave up but the robot is parked correctly, the goal succeeds.
+7. **Cancel, preempt or deadline** stops the base at once and is never retried.
+
+```mermaid
+flowchart TD
+  G([GoToPose / GoToLocation / GoToFrame goal]) --> V{valid goal?}
+  V -- no --> RJ([rejected])
+  V -- yes --> T[resolve target: pose / saved location / standoff next to TF]
+  T --> C[clear costmaps]
+  C --> N[send Nav2 NavigateToPose, relay feedback]
+  N --> R{Nav2 result}
+  R -- SUCCEEDED --> F
+  R -- ABORTED and retries left --> C
+  R -- ABORTED, no retries --> F{go_to_frame?}
+  F -- yes --> AL[ALIGNING: turn to face target]
+  AL --> VE{VERIFYING: parked correctly?}
+  VE -- yes --> S([SUCCEEDED])
+  VE -- no --> X([ABORTED with error code])
+  F -- no --> D{Nav2 succeeded?}
+  D -- yes --> S
+  D -- no --> X
+```
+
+### cmd_vel actions (`rotate`, `drive_straight`, `nudge_to_frame`)
+
+These are closed loops on `cmd_vel_nav_manual`, through twist_mux.
+- `rotate` uses a PD controller on yaw.
+- `drive_straight` drives a distance at `drive_speed`.
+- `nudge_to_frame` runs `ALIGNING` (turn toward the frame) → `DRIVING` (straight, to `stop_distance`) → `FACING`.
+
+### E-stop
+
+```mermaid
+flowchart LR
+  B[/events/digital_input + /sensors/core/] --> E[emergency_stop latches the press]
+  E --> L[e_stop lock -> twist_mux blocks /cmd_vel]
+  E --> S[/skuba/nav/e_stop -> skuba_state stops the run/]
+```
+
+A press is kept until `emergency_stop` restarts.
 
 ## Docker
 
@@ -250,8 +335,8 @@ tree alone has no effect at runtime.
 
 `odom -> base_footprint` comes from the base driver; everything below it comes
 from the `skuba_description` URDF. `map -> odom` comes from AMCL in
-both task launches, or from SLAM Toolbox while mapping
-(`nav2_slam_bringup_launch.py`).
+`cheesecake_nav.launch.py`, from a fixed transform in
+`cheesecake_restaurant.launch.py` (no AMCL), or from SLAM Toolbox while mapping.
 
 ```
 map -> odom -> base_footprint -> base_link -> laser
