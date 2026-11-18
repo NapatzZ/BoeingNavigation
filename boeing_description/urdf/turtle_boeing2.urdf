@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="turtle_boeing2">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-7.7303E-05 0.060061 -0.0035354"
+        rpy="0 0 0" />
+      <mass
+        value="8.1771" />
+      <inertia
+        ixx="0.064736"
+        ixy="1.4434E-06"
+        ixz="-6.2432E-08"
+        iyy="0.11644"
+        iyz="0.0011844"
+        izz="0.06108" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://turtle_boeing2/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://turtle_boeing2/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="lidar_Link">
+    <inertial>
+      <origin
+        xyz="-1.4938E-05 0.0099985 -0.00056545"
+        rpy="0 0 0" />
+      <mass
+        value="0.16538" />
+      <inertia
+        ixx="7.519E-05"
+        ixy="2.886E-08"
+        ixz="4.8472E-08"
+        iyy="0.00010995"
+        iyz="2.1848E-06"
+        izz="7.8865E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://turtle_boeing2/meshes/lidar_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.75294 0.75294 0.75294 0.4" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://turtle_boeing2/meshes/lidar_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lidar_joint"
+    type="fixed">
+    <origin
+      xyz="-8.2165E-05 0.0015017 0.17885"
+      rpy="1.5708 0 -3.1416" />
+    <parent
+      link="base_link" />
+    <child
+      link="lidar_Link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>
