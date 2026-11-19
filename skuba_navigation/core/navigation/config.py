@@ -51,7 +51,8 @@ class MotionConfig:
     spin_creep_zone_deg: float = 2.0  # inside this, command creep speed
     spin_stop_tolerance_deg: float = 2.0  # loop exit; goal tolerance only verifies
     spin_stall_deg: float = 0.5  # less turn than this in spin_stall_time = stalled
-    spin_stall_time: float = 0.5  # s; a stall inside the goal tolerance ends the turn
+    spin_stall_time: float = 0.5  # s
+    spin_boost_step: float = 0.05  # rad/s added to the speed at each stall, up to max
     spin_rate: float = 50.0  # Hz
     spin_settle_time: float = 0.5  # s before the final odom reading
 

@@ -130,7 +130,6 @@ class BaseMotion:
     def spin(
         self,
         angle: float,
-        tolerance: float,
         token: CancelToken,
         deadline: Deadline,
         on_progress: ProgressCallback = None,
@@ -142,9 +141,10 @@ class BaseMotion:
         that way, so angles past 180 deg are not short-cut. Returns the
         measured rotation (start-to-end yaw, unwrapped next to `angle`).
 
-        Stops early when the base stalls (no `spin_stall_deg` of progress for
-        `spin_stall_time`) already within `tolerance` rad of the target: at min
-        speed friction can hold it there, and waiting only burns the timeout.
+        Near the end the speed is low and friction can hold the base still. Each
+        `spin_stall_time` with less than `spin_stall_deg` of turn adds
+        `spin_boost_step` to the speed (up to `spin_max_speed`) until it moves on;
+        the boost stays for the rest of the turn, so it does not stall again.
         """
         cfg = self._config
         if self._odom is None:
@@ -158,7 +158,7 @@ class BaseMotion:
         turned = 0.0
         previous_remaining, previous_time = target, self._clock.now()
         last_seen = progress_time = previous_time
-        progress_turned = 0.0
+        progress_turned = boost = 0.0
         try:
             while True:
                 token.raise_if_cancelled()
@@ -183,14 +183,16 @@ class BaseMotion:
                 # a threshold, not "any growth": odom noise alone keeps `turned` creeping up
                 if turned - progress_turned > stall_step:
                     progress_turned, progress_time = turned, now
-                elif (
-                    remaining < tolerance and now - progress_time > cfg.spin_stall_time
-                ):
-                    break
+                elif now - progress_time > cfg.spin_stall_time:
+                    boost = min(boost + cfg.spin_boost_step, cfg.spin_max_speed)
+                    progress_time = now  # give the new speed a full stall time
                 dt = now - previous_time
                 rate = (remaining - previous_remaining) / dt if dt > 0.0 else 0.0
                 previous_remaining, previous_time = remaining, now
-                self._base.command(0.0, direction * spin_command(remaining, rate, cfg))
+                speed = min(
+                    spin_command(remaining, rate, cfg) + boost, cfg.spin_max_speed
+                )
+                self._base.command(0.0, direction * speed)
                 self._clock.sleep(period, token)
         finally:
             self._base.stop()
