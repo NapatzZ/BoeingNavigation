@@ -42,7 +42,7 @@ navigation_server:
       spin_kp: 3.0
       spin_kd: 0.3
       spin_max_speed: 1.0               # rad/s
-      spin_min_speed: 0.18              # rad/s
+      spin_min_speed: 0.23              # rad/s, above the floor's friction: 0.18 stalled the base
       spin_creep_speed: 0.10            # rad/s
       spin_decel_zone_deg: 10.0         # inside this, command min speed
       spin_creep_zone_deg: 2.0          # inside this, command creep speed

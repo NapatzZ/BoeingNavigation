@@ -45,7 +45,7 @@ class MotionConfig:
     spin_kp: float = 3.0
     spin_kd: float = 0.3
     spin_max_speed: float = 1.0  # rad/s
-    spin_min_speed: float = 0.18  # rad/s
+    spin_min_speed: float = 0.23  # rad/s; 0.18 stalled the base on our floor
     spin_creep_speed: float = 0.10  # rad/s
     spin_decel_zone_deg: float = 10.0  # inside this, command min speed
     spin_creep_zone_deg: float = 2.0  # inside this, command creep speed
