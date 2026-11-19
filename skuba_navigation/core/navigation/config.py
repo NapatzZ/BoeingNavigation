@@ -45,11 +45,14 @@ class MotionConfig:
     spin_kp: float = 3.0
     spin_kd: float = 0.3
     spin_max_speed: float = 1.0  # rad/s
-    spin_min_speed: float = 0.18  # rad/s
+    spin_min_speed: float = 0.23  # rad/s; 0.18 stalled the base on our floor
     spin_creep_speed: float = 0.10  # rad/s
     spin_decel_zone_deg: float = 10.0  # inside this, command min speed
     spin_creep_zone_deg: float = 2.0  # inside this, command creep speed
     spin_stop_tolerance_deg: float = 2.0  # loop exit; goal tolerance only verifies
+    spin_stall_deg: float = 0.5  # less turn than this in spin_stall_time = stalled
+    spin_stall_time: float = 0.5  # s
+    spin_boost_step: float = 0.05  # rad/s added to the speed at each stall, up to max
     spin_rate: float = 50.0  # Hz
     spin_settle_time: float = 0.5  # s before the final odom reading
 

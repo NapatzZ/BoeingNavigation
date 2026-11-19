@@ -92,6 +92,36 @@ def test_cancel_stops_a_spin():
     assert not h.robot.moving
 
 
+def _friction(h, below):
+    # the real base: the floor holds it still under `below` rad/s (run3: 20 s at 0.18)
+    command = h.robot.command
+    h.robot.command = lambda linear, angular: command(
+        linear, angular if abs(angular) > below else 0.0
+    )
+
+
+@pytest.mark.parametrize("below", [CFG.spin_min_speed, 0.3])
+def test_a_stalled_spin_speeds_up_until_it_reaches_the_angle(below):
+    h = Harness()
+    _friction(h, below)
+    turns = []
+    h.clock.listeners.append(lambda dt: turns.append(abs(h.robot.angular)))
+    achieved = h.motion.spin(math.radians(90), h.token, deadline(h))
+    # to the stop tolerance
+    assert math.degrees(achieved) == pytest.approx(90.0, abs=2.5)
+    assert h.clock.t < 6.0  # not the 20 s of run3
+    assert max(t for t in turns if t < CFG.spin_max_speed) > below  # it sped up past it
+
+
+def test_a_spin_that_never_stalls_is_not_boosted():
+    h = Harness()
+    turns = []
+    h.clock.listeners.append(lambda dt: turns.append(abs(h.robot.angular)))
+    h.motion.spin(math.radians(90), h.token, deadline(h))
+    tail = [t for t in turns if 0.0 < t < CFG.spin_max_speed]
+    assert min(tail) == pytest.approx(CFG.spin_min_speed)  # the decel zone as before
+
+
 def test_yaw_tracker_accumulates_across_wrap():
     tracker = YawTracker(0.0)
     for step in range(1, 28):  # 27 x 10 deg = 270 deg
