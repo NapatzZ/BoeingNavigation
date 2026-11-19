@@ -15,6 +15,7 @@ from skuba_navigation.core.navigation.motion import (
 from skuba_navigation.core.navigation.types import ErrorCode, Pose2D, TaskFailure
 
 CFG = MotionConfig()
+TOL = math.radians(CFG.rotate_default_tolerance_deg)
 
 
 def deadline(h, seconds=60.0):
@@ -61,7 +62,7 @@ def test_spin_command_d_term_adds_speed_while_closing_in():
 @pytest.mark.parametrize("angle_deg", [90.0, -90.0, 180.0, -180.0, 270.0])
 def test_spin_reaches_the_angle(angle_deg):
     h = Harness()
-    achieved = h.motion.spin(math.radians(angle_deg), h.token, deadline(h))
+    achieved = h.motion.spin(math.radians(angle_deg), TOL, h.token, deadline(h))
     assert math.degrees(achieved) == pytest.approx(angle_deg, abs=2.5)
     assert not h.robot.moving and h.robot.stops >= 1
 
@@ -70,7 +71,7 @@ def test_spin_turns_the_commanded_way_past_180():
     h = Harness()
     turns = []
     h.clock.listeners.append(lambda dt: turns.append(h.robot.angular))
-    h.motion.spin(math.radians(270), h.token, deadline(h))
+    h.motion.spin(math.radians(270), TOL, h.token, deadline(h))
     assert min(turns) >= 0.0  # never took the 90 deg short cut to the right
 
 
@@ -78,7 +79,7 @@ def test_spin_fails_and_stops_when_odometry_goes_quiet():
     h = Harness()
     h.clock.listeners.append(lambda dt: setattr(h.robot, "tf_down", h.clock.t > 0.5))
     with pytest.raises(TaskFailure) as failure:
-        h.motion.spin(math.radians(180), h.token, deadline(h))
+        h.motion.spin(math.radians(180), TOL, h.token, deadline(h))
     assert failure.value.code == ErrorCode.TF_LOOKUP_FAILED
     assert not h.robot.moving
 
@@ -87,8 +88,34 @@ def test_cancel_stops_a_spin():
     h = Harness()
     h.clock.listeners.append(lambda dt: h.clock.t > 0.5 and h.token.cancel())
     with pytest.raises(TaskFailure) as failure:
-        h.motion.spin(math.radians(180), h.token, deadline(h))
+        h.motion.spin(math.radians(180), TOL, h.token, deadline(h))
     assert failure.value.code == ErrorCode.CANCELED
+    assert not h.robot.moving
+
+
+def _stall_at_min_speed(h):
+    # the real base: the floor holds it at spin_min_speed (run3, 20 s stuck)
+    command = h.robot.command
+    h.robot.command = lambda linear, angular: command(
+        linear, angular if abs(angular) > CFG.spin_min_speed else 0.0
+    )
+
+
+def test_spin_stops_when_stalled_inside_the_goal_tolerance():
+    h = Harness()
+    _stall_at_min_speed(h)
+    achieved = h.motion.spin(math.radians(90), math.radians(12), h.token, deadline(h))
+    assert math.degrees(achieved) == pytest.approx(90.0, abs=12.0)
+    assert h.clock.t < 5.0
+    assert not h.robot.moving
+
+
+def test_spin_keeps_pushing_when_stalled_outside_the_goal_tolerance():
+    h = Harness()
+    _stall_at_min_speed(h)
+    with pytest.raises(TaskFailure) as failure:
+        h.motion.spin(math.radians(90), math.radians(5), h.token, deadline(h, 5.0))
+    assert failure.value.code == ErrorCode.TIMEOUT
     assert not h.robot.moving
 
 

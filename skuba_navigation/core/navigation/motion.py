@@ -130,6 +130,7 @@ class BaseMotion:
     def spin(
         self,
         angle: float,
+        tolerance: float,
         token: CancelToken,
         deadline: Deadline,
         on_progress: ProgressCallback = None,
@@ -140,6 +141,10 @@ class BaseMotion:
         Drives the commanded direction the whole way and counts only progress
         that way, so angles past 180 deg are not short-cut. Returns the
         measured rotation (start-to-end yaw, unwrapped next to `angle`).
+
+        Stops early when the base stalls (no `spin_stall_deg` of progress for
+        `spin_stall_time`) already within `tolerance` rad of the target: at min
+        speed friction can hold it there, and waiting only burns the timeout.
         """
         cfg = self._config
         if self._odom is None:
@@ -147,11 +152,13 @@ class BaseMotion:
         direction = 1.0 if angle >= 0.0 else -1.0
         target = abs(angle)
         stop = math.radians(cfg.spin_stop_tolerance_deg)
+        stall_step = math.radians(cfg.spin_stall_deg)
         period = 1.0 / cfg.spin_rate
         start_yaw = previous_yaw = self._odom.yaw(_SNAPSHOT_TIMEOUT)
         turned = 0.0
         previous_remaining, previous_time = target, self._clock.now()
-        last_seen = previous_time
+        last_seen = progress_time = previous_time
+        progress_turned = 0.0
         try:
             while True:
                 token.raise_if_cancelled()
@@ -173,6 +180,13 @@ class BaseMotion:
                 if remaining < stop:
                     break
                 now = self._clock.now()
+                # a threshold, not "any growth": odom noise alone keeps `turned` creeping up
+                if turned - progress_turned > stall_step:
+                    progress_turned, progress_time = turned, now
+                elif (
+                    remaining < tolerance and now - progress_time > cfg.spin_stall_time
+                ):
+                    break
                 dt = now - previous_time
                 rate = (remaining - previous_remaining) / dt if dt > 0.0 else 0.0
                 previous_remaining, previous_time = remaining, now
