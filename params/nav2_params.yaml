@@ -257,7 +257,9 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.35
+      # Keep <= navigation_server.yaml navigation.standoff_tolerance (0.15): Nav2 must not call
+      # "arrived" at a stop the standoff check will refuse.
+      xy_goal_tolerance: 0.15
       yaw_goal_tolerance: 0.35
 
     FollowPath:
