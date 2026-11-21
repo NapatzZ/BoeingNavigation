@@ -412,7 +412,7 @@ local_costmap:
           # D415 depth, 640x480, from its camera_info: 41.8 x 53.9 deg
           vertical_fov_angle: 0.7291
           horizontal_fov_angle: 0.9413
-          decay_acceleration: 15.0     # in view, an unseen voxel clears in ~1.2 s (a person who left)
+          decay_acceleration: 15.0     # in view, an unseen voxel clears in under 1 s (a person who left)
           model_type: 0
 
       always_send_full_costmap: True
