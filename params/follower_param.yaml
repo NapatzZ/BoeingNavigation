@@ -378,7 +378,7 @@ local_costmap:
         enabled: true
 
         # --- Temporal decay ---
-        voxel_decay: 2.0      # seconds until unobserved voxel disappears (linear mode)
+        voxel_decay: 10.0     # s an unseen voxel stays once out of the camera's view (linear mode)
         decay_model: 0        # 0=linear, 1=exponential, 2=persistent
 
         # --- Voxel grid ---
@@ -423,7 +423,7 @@ local_costmap:
           # D415 depth, 640x480, from its camera_info: 41.8 x 53.9 deg
           vertical_fov_angle: 0.7291
           horizontal_fov_angle: 0.9413
-          decay_acceleration: 15.0     # aggressive: person moves away → clears in ~133ms
+          decay_acceleration: 15.0     # in view, an unseen voxel clears in ~1.5 s (a person who left)
           model_type: 0
 
       always_send_full_costmap: True
