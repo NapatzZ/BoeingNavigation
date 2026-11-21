@@ -409,8 +409,7 @@ local_costmap:
           filter: "voxel"
           voxel_min_points: 0
           clear_after_reading: true
-          # The D415 depth stream at 640x480, from its camera_info (fx = fy = 628.94):
-          # 2*atan(480 / (2*fy)) = 41.8 deg, 2*atan(640 / (2*fx)) = 53.9 deg. Not the D435's 58 x 87.
+          # D415 depth, 640x480, from its camera_info: 41.8 x 53.9 deg
           vertical_fov_angle: 0.7291
           horizontal_fov_angle: 0.9413
           decay_acceleration: 15.0     # aggressive: person moves away → clears in ~133ms
