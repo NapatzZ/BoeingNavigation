@@ -1,0 +1,30 @@
+
+services:
+  boeing-ros:
+    image: osrf/ros:humble-desktop
+    container_name: boeing_ros
+
+    # ROS 2 discovery and networking
+    network_mode: host
+    ipc: host
+
+    # Convenient for initial physical robot development.
+    # Grants broad access to host devices.
+    privileged: true
+
+    # Keep project files on your host.
+    volumes:
+      - ./:/ros_ws
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+
+    working_dir: /ros_ws
+
+    environment:
+      - ROS_DISTRO=humble
+      - ROS_DOMAIN_ID=0
+
+    stdin_open: true
+    tty: true
+
+    command: bash
