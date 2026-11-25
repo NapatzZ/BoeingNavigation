@@ -15,9 +15,10 @@ services:
       - /Users/nimbuss/skuba_description:/ros_ws/src/skuba_description
       # Mount this repo
       - /Users/nimbuss/Documents/skuba_navigation:/ros_ws/src/skuba_navigation
-      # Hardware access
+      # Hardware access (lidar + kobuki base)
       - /dev:/dev
       - /run/udev:/run/udev:ro
+      - /dev/bus/usb:/dev/bus/usb
       # Build cache volumes
       - nav_ws_build:/ros_ws/build
       - nav_ws_install:/ros_ws/install
