@@ -15,6 +15,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'device_port', default_value='/dev/kobuki',
             description='Kobuki serial device'),
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
+        # odom -> base_link (kobuki_node publish_tf disabled)
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='odom_to_base_link',
+            arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_link'],
+            parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        ),
         Node(
             package='kobuki_node',
             executable='kobuki_ros_node',

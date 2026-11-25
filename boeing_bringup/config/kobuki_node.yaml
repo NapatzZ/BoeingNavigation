@@ -13,7 +13,7 @@ kobuki_ros_node:
     cmd_vel_timeout_sec: 0.6
     odom_frame: odom
     base_frame: base_link         # root link of boeing.urdf
-    publish_tf: true              # odom -> base_link
+    publish_tf: false             # disabled: using static_transform_publisher for odom -> base_link
     use_imu_heading: true
     wheel_left_joint_name: wheel_left_joint
     wheel_right_joint_name: wheel_right_joint
