@@ -25,15 +25,13 @@ RUN apt-get update && apt-get install -y \
 RUN rosdep init || true
 RUN rosdep update
 
-# ROS 2 nav stack + kobuki + twist_mux + foxglove
+# ROS 2 nav stack + twist_mux + foxglove (kobuki built from source below)
 RUN apt-get update && apt-get install -y \
     ros-humble-nav2-bringup \
     ros-humble-slam-toolbox \
     ros-humble-tf2 \
     ros-humble-tf2-ros \
     ros-humble-tf2-msgs \
-    ros-humble-kobuki-ros-interfaces \
-    ros-humble-kobuki-velocity-smoother \
     ros-humble-teleop-twist-keyboard \
     ros-humble-joy-teleop \
     ros-humble-teleop-twist-joy \
@@ -47,7 +45,9 @@ WORKDIR /ros_ws/src
 RUN git clone https://github.com/Slamtec/sllidar_ros2.git
 # nav2_bringup not in apt, build from source
 RUN git clone https://github.com/ros-navigation/navigation2.git -b humble
-# kobuki driver
+# kobuki: interfaces, velocity_smoother, core driver (no apt packages in Humble)
+RUN git clone https://github.com/kobuki-base/kobuki_ros.git -b humble
+RUN git clone https://github.com/kobuki-base/kobuki.git -b humble
 RUN git clone https://github.com/NapatzZ/skuba-kobuki-driver.git
 
 WORKDIR /ros_ws
