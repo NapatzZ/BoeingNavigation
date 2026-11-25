@@ -146,6 +146,10 @@ def generate_launch_description():
         "log_level", default_value="info", description="log level"
     )
 
+    declare_use_e_stop_cmd = DeclareLaunchArgument(
+        "use_e_stop", default_value="false", description="Enable emergency_stop node (needs kobuki e-stop button)"
+    )
+
     bringup_cmd_group = GroupAction(
         [
             PushRosNamespace(condition=IfCondition(use_namespace), namespace=namespace),
@@ -228,6 +232,7 @@ def generate_launch_description():
                 executable="emergency_stop",
                 name="emergency_stop",
                 output="screen",
+                condition=IfCondition(LaunchConfiguration("use_e_stop", default="false")),
             ),
             # twist_mux: arbitrates cmd_vel_joy / cmd_vel_key / cmd_vel_nav
             # (+ e_stop lock) into the single /cmd_vel the base drives, so
@@ -266,6 +271,7 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
     ld.add_action(declare_publish_laser_tf_cmd)
     ld.add_action(declare_use_rviz_cmd)
+    ld.add_action(declare_use_e_stop_cmd)
     ld.add_action(bringup_cmd_group)
 
     return ld
