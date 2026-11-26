@@ -1,0 +1,63 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no hardware)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: dockerfile
+          push: false
+          load: true
+          tags: boeing-navigation:humble
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test image loads and sources ROS
+        run: |
+          docker run --rm boeing-navigation:humble \
+            /bin/bash -c "source /opt/ros/humble/setup.bash && source /ros_ws/install/setup.bash && ros2 pkg list | grep -E '(boeing_bringup|boeing_navigation|boeing_description)'"
+
+      - name: Verify launch files parse
+        run: |
+          docker run --rm boeing-navigation:humble \
+            /bin/bash -c "source /opt/ros/humble/setup.bash && source /ros_ws/install/setup.bash && \
+            ros2 launch boeing_bringup bringup.launch.py --show-args && \
+            ros2 launch boeing_navigation navigation.launch.py --show-args && \
+            ros2 launch boeing_navigation slam.launch.py --show-args && \
+            ros2 launch boeing_navigation waypoints.launch.py --show-args"
+
+      - name: Verify config files exist
+        run: |
+          docker run --rm boeing-navigation:humble \
+            /bin/bash -c "source /opt/ros/humble/setup.bash && source /ros_ws/install/setup.bash && \
+            test -f /ros_ws/install/boeing_bringup/share/boeing_bringup/config/kobuki_node.yaml && \
+            test -f /ros_ws/install/boeing_bringup/share/boeing_bringup/config/sllidar_a3.yaml && \
+            test -f /ros_ws/install/boeing_navigation/share/boeing_navigation/config/nav2_params.yaml && \
+            test -f /ros_ws/install/boeing_navigation/share/boeing_navigation/config/slam_toolbox.yaml && \
+            echo 'All config files present'"
+
+      - name: Verify entrypoint works
+        run: |
+          docker run --rm boeing-navigation:humble \
+            /bin/bash -c "source /opt/ros/humble/setup.bash && source /ros_ws/install/setup.bash && ros2 --help"
